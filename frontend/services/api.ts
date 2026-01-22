@@ -70,4 +70,35 @@ export const getCommunityPresence = async (): Promise<CommunityPresence> => {
   return response.data;
 };
 
+// ==================== BITÁCORA (Sleep Coach Log) ====================
+
+export const createBitacora = async (bitacora: DailyBitacoraCreate): Promise<DailyBitacora> => {
+  const response = await api.post('/bitacora', bitacora);
+  return response.data;
+};
+
+export const getBitacoras = async (limit: number = 30): Promise<DailyBitacora[]> => {
+  const response = await api.get('/bitacora', { params: { limit } });
+  return response.data;
+};
+
+export const getTodayBitacora = async (): Promise<DailyBitacora | null> => {
+  try {
+    const response = await api.get('/bitacora/today');
+    return response.data;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const updateBitacora = async (id: string, bitacora: DailyBitacoraCreate): Promise<DailyBitacora> => {
+  const response = await api.put(`/bitacora/${id}`, bitacora);
+  return response.data;
+};
+
+export const getBitacoraById = async (id: string): Promise<DailyBitacora> => {
+  const response = await api.get(`/bitacora/${id}`);
+  return response.data;
+};
+
 export default api;
