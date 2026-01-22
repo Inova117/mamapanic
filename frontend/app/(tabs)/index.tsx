@@ -8,7 +8,7 @@ import CommunityBar from '../../components/CommunityBar';
 
 export default function HomeScreen() {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
