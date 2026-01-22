@@ -77,6 +77,80 @@ class CommunityPresence(BaseModel):
     sample_names: List[str]
     message: str
 
+# ==================== BITÁCORA MODELS (Sleep Coach Log) ====================
+
+class NapEntry(BaseModel):
+    laid_down_time: Optional[str] = None      # 🛏 acosté a las
+    fell_asleep_time: Optional[str] = None    # 😴 Se durmió a las
+    how_fell_asleep: Optional[str] = None     # 💤 Cómo se durmió
+    woke_up_time: Optional[str] = None        # 😊 Se despertó
+    duration_minutes: Optional[int] = None    # ⏰ Duración
+
+class NightWaking(BaseModel):
+    time: Optional[str] = None                # Hora del despertar
+    duration_minutes: Optional[int] = None    # Cuánto duró
+    what_was_done: Optional[str] = None       # Qué hiciste
+
+class DailyBitacora(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str = "default_user"
+    day_number: int = 1                       # Bitácora del día #
+    date: str                                  # Fecha del registro
+    
+    # Mañana anterior
+    previous_day_wake_time: Optional[str] = None  # ☀️ Hora de despertar día anterior
+    
+    # Siestas
+    nap_1: Optional[NapEntry] = None
+    nap_2: Optional[NapEntry] = None
+    nap_3: Optional[NapEntry] = None
+    
+    # Alimentación
+    how_baby_ate: Optional[str] = None        # 🥑🥛 Cómo comió a lo largo del día
+    
+    # Rutina nocturna
+    relaxing_routine_start: Optional[str] = None  # 🫧 Rutina relajante (hora que comenzó)
+    baby_mood: Optional[str] = None           # 😁 Humor
+    last_feeding_time: Optional[str] = None   # ⏰ Última toma del día
+    laid_down_for_bed: Optional[str] = None   # 🛏 Le acosté
+    fell_asleep_at: Optional[str] = None      # Se durmió
+    time_to_fall_asleep_minutes: Optional[int] = None  # Tardó en dormirse
+    
+    # Despertares nocturnos
+    number_of_wakings: Optional[int] = None   # # de Despertares
+    night_wakings: Optional[List[NightWaking]] = None  # Detalles de cada despertar
+    
+    # Mañana siguiente
+    morning_wake_time: Optional[str] = None   # ☀️ Hora de despertar hoy por la mañana
+    
+    # Notas adicionales
+    notes: Optional[str] = None
+    
+    # AI summary for coach
+    ai_summary: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DailyBitacoraCreate(BaseModel):
+    day_number: int = 1
+    date: str
+    previous_day_wake_time: Optional[str] = None
+    nap_1: Optional[NapEntry] = None
+    nap_2: Optional[NapEntry] = None
+    nap_3: Optional[NapEntry] = None
+    how_baby_ate: Optional[str] = None
+    relaxing_routine_start: Optional[str] = None
+    baby_mood: Optional[str] = None
+    last_feeding_time: Optional[str] = None
+    laid_down_for_bed: Optional[str] = None
+    fell_asleep_at: Optional[str] = None
+    time_to_fall_asleep_minutes: Optional[int] = None
+    number_of_wakings: Optional[int] = None
+    night_wakings: Optional[List[NightWaking]] = None
+    morning_wake_time: Optional[str] = None
+    notes: Optional[str] = None
+
 # ==================== DEFAULT VALIDATION CARDS ====================
 
 DEFAULT_VALIDATIONS = [
