@@ -1,22 +1,53 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Platform, View, Text } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, spacing } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabLayout() {
   const { user } = useAuth();
   const isCoach = user?.role === 'coach';
+  const insets = useSafeAreaInsets();
+
+  // Calculate proper bottom padding for the tab bar
+  // This accounts for the Android navigation bar
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 0);
+  const tabBarHeight = 60 + bottomPadding;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: colors.background.secondary,
+          borderTopColor: colors.background.card,
+          borderTopWidth: 1,
+          height: tabBarHeight,
+          paddingBottom: bottomPadding,
+          paddingTop: spacing.xs,
+          // Ensure it's positioned above the system nav bar
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 8,
+        },
         tabBarActiveTintColor: colors.accent.gold,
         tabBarInactiveTintColor: colors.text.muted,
-        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarLabelStyle: {
+          fontSize: fontSize.xs,
+          fontWeight: '600',
+          marginBottom: Platform.OS === 'android' ? 4 : 0,
+        },
+        tabBarIconStyle: {
+          marginTop: Platform.OS === 'android' ? 4 : 0,
+        },
+        // Add padding to content to not overlap with tab bar
+        sceneStyle: {
+          backgroundColor: colors.background.primary,
+        },
       }}
     >
       <Tabs.Screen
@@ -55,17 +86,16 @@ export default function TabLayout() {
           ),
         }}
       />
-      {isCoach && (
-        <Tabs.Screen
-          name="dashboard"
-          options={{
-            title: 'Clientes',
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Clientes',
+          href: isCoach ? '/dashboard' : null, // Hide if not coach
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
@@ -78,18 +108,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.background.secondary,
-    borderTopColor: colors.background.card,
-    borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 90 : 70,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-    paddingTop: spacing.sm,
-  },
-  tabBarLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
-});
