@@ -3,29 +3,29 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
-import BitacoraInput from '../../components/BitacoraInput';
-import { getCheckIns, getTodayCheckIn } from '../../services/api';
-import { DailyCheckIn } from '../../types';
+import SleepCoachBitacora from '../../components/SleepCoachBitacora';
+import { getBitacoras, getTodayBitacora } from '../../services/api';
+import { DailyBitacora } from '../../types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default function BitacoraScreen() {
   const [showInput, setShowInput] = useState(false);
-  const [todayCheckIn, setTodayCheckIn] = useState<DailyCheckIn | null>(null);
-  const [recentCheckIns, setRecentCheckIns] = useState<DailyCheckIn[]>([]);
+  const [todayBitacora, setTodayBitacora] = useState<DailyBitacora | null>(null);
+  const [recentBitacoras, setRecentBitacoras] = useState<DailyBitacora[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const [today, recent] = await Promise.all([
-        getTodayCheckIn(),
-        getCheckIns(7),
+        getTodayBitacora(),
+        getBitacoras(7),
       ]);
-      setTodayCheckIn(today);
-      setRecentCheckIns(recent);
+      setTodayBitacora(today);
+      setRecentBitacoras(recent);
     } catch (error) {
-      console.error('Error fetching check-ins:', error);
+      console.error('Error fetching bitacoras:', error);
     } finally {
       setIsLoading(false);
     }
@@ -35,28 +35,14 @@ export default function BitacoraScreen() {
     fetchData();
   }, []);
 
-  const handleCheckInComplete = (checkIn: DailyCheckIn) => {
-    setTodayCheckIn(checkIn);
-    setShowInput(false);
+  const handleBitacoraComplete = (bitacora: DailyBitacora) => {
+    setTodayBitacora(bitacora);
     fetchData();
   };
 
-  const getMoodEmoji = (mood: number) => {
-    switch (mood) {
-      case 1: return '😢';
-      case 2: return '😐';
-      case 3: return '🙂';
-      default: return '😐';
-    }
-  };
-
-  const getMoodColor = (mood: number) => {
-    switch (mood) {
-      case 1: return colors.mood.sad;
-      case 2: return colors.mood.neutral;
-      case 3: return colors.mood.happy;
-      default: return colors.mood.neutral;
-    }
+  const handleClose = () => {
+    setShowInput(false);
+    fetchData();
   };
 
   if (showInput) {
@@ -64,14 +50,18 @@ export default function BitacoraScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.inputHeader}>
           <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => setShowInput(false)}
+            style={styles.closeButton}
+            onPress={handleClose}
           >
             <Ionicons name="close" size={28} color={colors.text.secondary} />
           </TouchableOpacity>
-          <Text style={styles.inputTitle}>Check-in Diario</Text>
+          <Text style={styles.inputTitle}>Bitácora del Día</Text>
+          <View style={{ width: 40 }} />
         </View>
-        <BitacoraInput onComplete={handleCheckInComplete} />
+        <SleepCoachBitacora 
+          onComplete={handleBitacoraComplete}
+          onClose={handleClose}
+        />
       </SafeAreaView>
     );
   }
@@ -85,59 +75,109 @@ export default function BitacoraScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Tu Bitácora</Text>
-          <Text style={styles.subtitle}>Un espacio para desahogarte</Text>
+          <Text style={styles.title}>Bitácora de Sueño</Text>
+          <Text style={styles.subtitle}>Registro diario para tu coach</Text>
         </View>
 
         {/* Today's Status */}
         <View style={styles.todayCard}>
-          {todayCheckIn ? (
+          {todayBitacora ? (
             <>
               <View style={styles.todayHeader}>
                 <Ionicons name="checkmark-circle" size={24} color={colors.accent.sage} />
-                <Text style={styles.todayTitle}>Hoy ya registraste</Text>
+                <Text style={styles.todayTitle}>Día #{todayBitacora.day_number} registrado</Text>
               </View>
-              <View style={styles.todayContent}>
-                <Text style={styles.todayMood}>{getMoodEmoji(todayCheckIn.mood)}</Text>
-                {todayCheckIn.ai_response && (
-                  <Text style={styles.todayResponse}>{todayCheckIn.ai_response}</Text>
+              <View style={styles.todaySummary}>
+                {todayBitacora.morning_wake_time && (
+                  <View style={styles.summaryItem}>
+                    <Ionicons name="sunny-outline" size={18} color={colors.accent.gold} />
+                    <Text style={styles.summaryText}>Despertó: {todayBitacora.morning_wake_time}</Text>
+                  </View>
+                )}
+                {todayBitacora.number_of_wakings !== undefined && (
+                  <View style={styles.summaryItem}>
+                    <Ionicons name="moon-outline" size={18} color={colors.accent.terracotta} />
+                    <Text style={styles.summaryText}>{todayBitacora.number_of_wakings} despertares</Text>
+                  </View>
+                )}
+                {todayBitacora.baby_mood && (
+                  <View style={styles.summaryItem}>
+                    <Ionicons name="happy-outline" size={18} color={colors.accent.sage} />
+                    <Text style={styles.summaryText}>Humor: {todayBitacora.baby_mood}</Text>
+                  </View>
                 )}
               </View>
+              {todayBitacora.ai_summary && (
+                <View style={styles.aiSummaryCard}>
+                  <Text style={styles.aiSummaryLabel}>Resumen para la coach:</Text>
+                  <Text style={styles.aiSummaryText}>{todayBitacora.ai_summary}</Text>
+                </View>
+              )}
             </>
           ) : (
             <>
               <View style={styles.todayHeader}>
                 <Ionicons name="add-circle" size={24} color={colors.accent.gold} />
-                <Text style={styles.todayTitle}>¿Cómo fue tu noche?</Text>
+                <Text style={styles.todayTitle}>Registra el día de hoy</Text>
               </View>
               <Text style={styles.todaySubtext}>
-                Toca abajo para registrar cómo te sientes
+                Tu coach necesita estos datos para ayudarte mejor
               </Text>
             </>
           )}
         </View>
 
-        {/* Recent Check-ins */}
-        {recentCheckIns.length > 0 && (
+        {/* What to register */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>¿Qué registrarás?</Text>
+          <View style={styles.infoList}>
+            <View style={styles.infoItem}>
+              <Ionicons name="sunny" size={20} color={colors.accent.gold} />
+              <Text style={styles.infoText}>Hora de despertar</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="bed" size={20} color={colors.accent.sage} />
+              <Text style={styles.infoText}>3 Siestas del día</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="nutrition" size={20} color={colors.accent.gold} />
+              <Text style={styles.infoText}>Alimentación</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="moon" size={20} color={colors.accent.terracotta} />
+              <Text style={styles.infoText}>Rutina nocturna</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="notifications" size={20} color={colors.accent.terracotta} />
+              <Text style={styles.infoText}>Despertares nocturnos</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Recent Bitácoras */}
+        {recentBitacoras.length > 0 && (
           <View style={styles.historySection}>
             <Text style={styles.sectionTitle}>Historial reciente</Text>
-            {recentCheckIns.map((checkIn) => (
-              <View key={checkIn.id} style={styles.historyCard}>
-                <View 
-                  style={[
-                    styles.moodIndicator, 
-                    { backgroundColor: getMoodColor(checkIn.mood) }
-                  ]} 
-                />
-                <View style={styles.historyContent}>
+            {recentBitacoras.map((bitacora) => (
+              <View key={bitacora.id} style={styles.historyCard}>
+                <View style={styles.historyHeader}>
+                  <Text style={styles.historyDay}>Día #{bitacora.day_number}</Text>
                   <Text style={styles.historyDate}>
-                    {format(new Date(checkIn.created_at), "EEEE d 'de' MMMM", { locale: es })}
+                    {format(new Date(bitacora.date), "d 'de' MMMM", { locale: es })}
                   </Text>
-                  <Text style={styles.historyMood}>{getMoodEmoji(checkIn.mood)}</Text>
-                  {checkIn.brain_dump && (
-                    <Text style={styles.historyNote} numberOfLines={2}>
-                      {checkIn.brain_dump}
-                    </Text>
+                </View>
+                <View style={styles.historyStats}>
+                  {bitacora.number_of_wakings !== undefined && (
+                    <View style={styles.statBadge}>
+                      <Ionicons name="moon" size={14} color={colors.accent.terracotta} />
+                      <Text style={styles.statText}>{bitacora.number_of_wakings} despertares</Text>
+                    </View>
+                  )}
+                  {bitacora.baby_mood && (
+                    <View style={styles.statBadge}>
+                      <Ionicons name="happy" size={14} color={colors.accent.sage} />
+                      <Text style={styles.statText}>{bitacora.baby_mood}</Text>
+                    </View>
                   )}
                 </View>
               </View>
@@ -146,7 +186,7 @@ export default function BitacoraScreen() {
         )}
       </ScrollView>
 
-      {/* New Check-in Button */}
+      {/* New Bitácora Button */}
       <View style={styles.fabContainer}>
         <TouchableOpacity 
           style={styles.fab}
@@ -155,7 +195,7 @@ export default function BitacoraScreen() {
         >
           <Ionicons name="add" size={28} color={colors.text.primary} />
           <Text style={styles.fabText}>
-            {todayCheckIn ? 'Nuevo registro' : 'Registrar hoy'}
+            {todayBitacora ? 'Nueva bitácora' : 'Registrar hoy'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -192,12 +232,15 @@ const styles = StyleSheet.create({
   inputHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    gap: spacing.md,
   },
-  backButton: {
-    padding: spacing.xs,
+  closeButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputTitle: {
     fontSize: fontSize.lg,
@@ -226,20 +269,62 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text.secondary,
   },
-  todayContent: {
+  todaySummary: {
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  summaryItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingTop: spacing.md,
+    gap: spacing.sm,
   },
-  todayMood: {
-    fontSize: 48,
-  },
-  todayResponse: {
+  summaryText: {
     fontSize: fontSize.md,
     color: colors.text.secondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    lineHeight: 22,
+  },
+  aiSummaryCard: {
+    backgroundColor: colors.background.elevated,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accent.sage,
+  },
+  aiSummaryLabel: {
+    fontSize: fontSize.xs,
+    color: colors.accent.sage,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  aiSummaryText: {
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  infoCard: {
+    backgroundColor: colors.background.card,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+  },
+  infoTitle: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  infoList: {
+    gap: spacing.sm,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  infoText: {
+    fontSize: fontSize.sm,
+    color: colors.text.secondary,
   },
   historySection: {
     paddingHorizontal: spacing.lg,
@@ -251,32 +336,44 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   historyCard: {
-    flexDirection: 'row',
     backgroundColor: colors.background.card,
     borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
-  },
-  moodIndicator: {
-    width: 4,
-  },
-  historyContent: {
-    flex: 1,
     padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  historyDay: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
   historyDate: {
     fontSize: fontSize.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
+    color: colors.text.muted,
     textTransform: 'capitalize',
   },
-  historyMood: {
-    fontSize: fontSize.xl,
-    marginBottom: spacing.xs,
+  historyStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
   },
-  historyNote: {
-    fontSize: fontSize.sm,
-    color: colors.text.muted,
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.background.elevated,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+  },
+  statText: {
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
   },
   fabContainer: {
     position: 'absolute',
