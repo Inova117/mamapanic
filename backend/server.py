@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response
+from fastapi.security import HTTPBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,7 +9,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+import httpx
+from datetime import datetime, timezone, timedelta
 import random
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
@@ -18,7 +20,7 @@ load_dotenv(ROOT_DIR / '.env')
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME', 'mama_respira')]
 
 # Emergent LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -29,26 +31,69 @@ app = FastAPI(title="MAMÁ RESPIRA API")
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# ==================== MODELS ====================
+security = HTTPBearer(auto_error=False)
+
+# ==================== USER MODELS ====================
+
+class User(BaseModel):
+    user_id: str
+    email: str
+    name: str
+    picture: Optional[str] = None
+    role: str = "user"  # "user", "premium", "coach"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserSession(BaseModel):
+    user_id: str
+    session_token: str
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class SessionDataResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    picture: Optional[str] = None
+    session_token: str
+
+# ==================== MESSAGE MODELS (Coach <-> User) ====================
+
+class DirectMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender_id: str  # user_id of sender
+    receiver_id: str  # user_id of receiver
+    content: str
+    read: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class DirectMessageCreate(BaseModel):
+    receiver_id: str
+    content: str
+
+class Conversation(BaseModel):
+    user_id: str
+    user_name: str
+    user_email: str
+    user_picture: Optional[str] = None
+    last_message: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    unread_count: int = 0
+
+# ==================== EXISTING MODELS ====================
 
 class ValidationCard(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message_es: str
     message_en: Optional[str] = None
-    category: str = "general"  # general, sleep, crying, feeding, self_care
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class ValidationCardCreate(BaseModel):
-    message_es: str
-    message_en: Optional[str] = None
     category: str = "general"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DailyCheckIn(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = "default_user"
-    mood: int  # 1=sad, 2=neutral, 3=happy
-    sleep_start: Optional[str] = None  # HH:MM format
-    sleep_end: Optional[str] = None    # HH:MM format
+    mood: int
+    sleep_start: Optional[str] = None
+    sleep_end: Optional[str] = None
     baby_wakeups: Optional[int] = None
     brain_dump: Optional[str] = None
     ai_response: Optional[str] = None
@@ -64,7 +109,8 @@ class DailyCheckInCreate(BaseModel):
 class ChatMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str
-    role: str  # "user" or "assistant"
+    user_id: str = "default_user"
+    role: str
     content: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -77,58 +123,41 @@ class CommunityPresence(BaseModel):
     sample_names: List[str]
     message: str
 
-# ==================== BITÁCORA MODELS (Sleep Coach Log) ====================
+# ==================== BITÁCORA MODELS ====================
 
 class NapEntry(BaseModel):
-    laid_down_time: Optional[str] = None      # 🛏 acosté a las
-    fell_asleep_time: Optional[str] = None    # 😴 Se durmió a las
-    how_fell_asleep: Optional[str] = None     # 💤 Cómo se durmió
-    woke_up_time: Optional[str] = None        # 😊 Se despertó
-    duration_minutes: Optional[int] = None    # ⏰ Duración
+    laid_down_time: Optional[str] = None
+    fell_asleep_time: Optional[str] = None
+    how_fell_asleep: Optional[str] = None
+    woke_up_time: Optional[str] = None
+    duration_minutes: Optional[int] = None
 
 class NightWaking(BaseModel):
-    time: Optional[str] = None                # Hora del despertar
-    duration_minutes: Optional[int] = None    # Cuánto duró
-    what_was_done: Optional[str] = None       # Qué hiciste
+    time: Optional[str] = None
+    duration_minutes: Optional[int] = None
+    what_was_done: Optional[str] = None
 
 class DailyBitacora(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = "default_user"
-    day_number: int = 1                       # Bitácora del día #
-    date: str                                  # Fecha del registro
-    
-    # Mañana anterior
-    previous_day_wake_time: Optional[str] = None  # ☀️ Hora de despertar día anterior
-    
-    # Siestas
+    day_number: int = 1
+    date: str
+    previous_day_wake_time: Optional[str] = None
     nap_1: Optional[NapEntry] = None
     nap_2: Optional[NapEntry] = None
     nap_3: Optional[NapEntry] = None
-    
-    # Alimentación
-    how_baby_ate: Optional[str] = None        # 🥑🥛 Cómo comió a lo largo del día
-    
-    # Rutina nocturna
-    relaxing_routine_start: Optional[str] = None  # 🫧 Rutina relajante (hora que comenzó)
-    baby_mood: Optional[str] = None           # 😁 Humor
-    last_feeding_time: Optional[str] = None   # ⏰ Última toma del día
-    laid_down_for_bed: Optional[str] = None   # 🛏 Le acosté
-    fell_asleep_at: Optional[str] = None      # Se durmió
-    time_to_fall_asleep_minutes: Optional[int] = None  # Tardó en dormirse
-    
-    # Despertares nocturnos
-    number_of_wakings: Optional[int] = None   # # de Despertares
-    night_wakings: Optional[List[NightWaking]] = None  # Detalles de cada despertar
-    
-    # Mañana siguiente
-    morning_wake_time: Optional[str] = None   # ☀️ Hora de despertar hoy por la mañana
-    
-    # Notas adicionales
+    how_baby_ate: Optional[str] = None
+    relaxing_routine_start: Optional[str] = None
+    baby_mood: Optional[str] = None
+    last_feeding_time: Optional[str] = None
+    laid_down_for_bed: Optional[str] = None
+    fell_asleep_at: Optional[str] = None
+    time_to_fall_asleep_minutes: Optional[int] = None
+    number_of_wakings: Optional[int] = None
+    night_wakings: Optional[List[NightWaking]] = None
+    morning_wake_time: Optional[str] = None
     notes: Optional[str] = None
-    
-    # AI summary for coach
     ai_summary: Optional[str] = None
-    
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -151,7 +180,7 @@ class DailyBitacoraCreate(BaseModel):
     morning_wake_time: Optional[str] = None
     notes: Optional[str] = None
 
-# ==================== DEFAULT VALIDATION CARDS ====================
+# ==================== DEFAULT DATA ====================
 
 DEFAULT_VALIDATIONS = [
     {"message_es": "No lo estás haciendo mal. 9 de cada 10 mamás se sienten exactamente así ahora mismo.", "category": "general"},
@@ -170,6 +199,9 @@ DEFAULT_VALIDATIONS = [
     {"message_es": "No tienes que disfrutar cada momento para ser buena mamá.", "category": "general"},
     {"message_es": "La lactancia es difícil. Sea cual sea tu camino, está bien.", "category": "feeding"},
 ]
+
+# Coach email - change this to the actual coach email
+COACH_EMAIL = "coach@mamarespira.com"
 
 # ==================== AI SYSTEM PROMPT ====================
 
@@ -190,26 +222,86 @@ Reglas ESTRICTAS:
 5. Normaliza los sentimientos difíciles de la maternidad.
 6. NUNCA juzgues decisiones de crianza (pecho/biberón, colecho, etc.)
 
-Ejemplo de buena respuesta:
-Usuaria: "Mi bebé no para de llorar y no sé qué hacer"
-Tú: "Ese sonido es agotador, lo sé. Respira profundo. Estás haciendo todo lo posible y eso es suficiente. ¿Quieres que repasemos juntas la lista de cosas básicas?"
-
 Recuerda: Tu objetivo es que la mamá pase de pánico a calma en menos de 30 segundos."""
 
-# ==================== HELPER FUNCTIONS ====================
+# ==================== AUTH HELPERS ====================
 
-async def get_ai_response(user_message: str, session_id: str) -> str:
+async def get_session_token(request: Request) -> Optional[str]:
+    """Get session token from cookie or Authorization header"""
+    # Try cookie first
+    session_token = request.cookies.get("session_token")
+    if session_token:
+        return session_token
+    
+    # Try Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    
+    return None
+
+async def get_current_user(request: Request) -> Optional[User]:
+    """Get current user from session token"""
+    session_token = await get_session_token(request)
+    if not session_token:
+        return None
+    
+    session = await db.user_sessions.find_one(
+        {"session_token": session_token},
+        {"_id": 0}
+    )
+    if not session:
+        return None
+    
+    # Check expiry with timezone awareness
+    expires_at = session["expires_at"]
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at <= datetime.now(timezone.utc):
+        return None
+    
+    user_doc = await db.users.find_one(
+        {"user_id": session["user_id"]},
+        {"_id": 0}
+    )
+    if user_doc:
+        return User(**user_doc)
+    return None
+
+async def require_auth(request: Request) -> User:
+    """Require authentication"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    return user
+
+async def require_premium(request: Request) -> User:
+    """Require premium or coach role"""
+    user = await require_auth(request)
+    if user.role not in ["premium", "coach"]:
+        raise HTTPException(status_code=403, detail="Se requiere cuenta premium")
+    return user
+
+async def require_coach(request: Request) -> User:
+    """Require coach role"""
+    user = await require_auth(request)
+    if user.role != "coach":
+        raise HTTPException(status_code=403, detail="Acceso solo para coach")
+    return user
+
+# ==================== AI HELPERS ====================
+
+async def get_ai_response(user_message: str, session_id: str, user_id: str) -> str:
     """Get AI response using Claude via Emergent integration"""
     try:
-        # Get chat history for context
         history = await db.chat_messages.find(
-            {"session_id": session_id}
+            {"session_id": session_id, "user_id": user_id}
         ).sort("created_at", -1).limit(10).to_list(10)
         
-        # Build context from history
         context = ""
         if history:
-            history.reverse()  # Oldest first
+            history.reverse()
             for msg in history:
                 role = "Mamá" if msg["role"] == "user" else "Abuela"
                 context += f"{role}: {msg['content']}\n"
@@ -229,7 +321,7 @@ async def get_ai_response(user_message: str, session_id: str) -> str:
         return "Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛"
 
 async def get_validation_response(mood: int, brain_dump: Optional[str] = None) -> str:
-    """Generate AI validation response based on mood and brain dump"""
+    """Generate AI validation response based on mood"""
     try:
         mood_context = {
             1: "La mamá se siente muy mal/triste hoy.",
@@ -240,7 +332,6 @@ async def get_validation_response(mood: int, brain_dump: Optional[str] = None) -
         message = mood_context.get(mood, "")
         if brain_dump:
             message += f" Ella escribió: '{brain_dump}'"
-        
         message += "\n\nResponde con una validación corta y cariñosa (máximo 2 oraciones)."
         
         chat = LlmChat(
@@ -255,146 +346,14 @@ async def get_validation_response(mood: int, brain_dump: Optional[str] = None) -
         logging.error(f"Validation AI Error: {e}")
         return "Gracias por compartir. Recuerda: cada día que pasas con tu bebé es un día de amor. 💛"
 
-# ==================== ROUTES ====================
-
-@api_router.get("/")
-async def root():
-    return {"message": "MAMÁ RESPIRA API - Bienvenida"}
-
-# Validation Cards
-@api_router.get("/validations/random", response_model=ValidationCard)
-async def get_random_validation(category: Optional[str] = None):
-    """Get a random validation card"""
-    query = {}
-    if category:
-        query["category"] = category
-    
-    validations = await db.validation_cards.find(query).to_list(100)
-    
-    if not validations:
-        # Seed default validations if empty
-        for v in DEFAULT_VALIDATIONS:
-            card = ValidationCard(**v)
-            await db.validation_cards.insert_one(card.model_dump())
-        validations = await db.validation_cards.find(query).to_list(100)
-    
-    selected = random.choice(validations)
-    return ValidationCard(**selected)
-
-@api_router.get("/validations", response_model=List[ValidationCard])
-async def get_all_validations():
-    """Get all validation cards"""
-    validations = await db.validation_cards.find().to_list(100)
-    if not validations:
-        for v in DEFAULT_VALIDATIONS:
-            card = ValidationCard(**v)
-            await db.validation_cards.insert_one(card.model_dump())
-        validations = await db.validation_cards.find().to_list(100)
-    return [ValidationCard(**v) for v in validations]
-
-# Daily Check-ins
-@api_router.post("/checkins", response_model=DailyCheckIn)
-async def create_checkin(checkin: DailyCheckInCreate):
-    """Create a new daily check-in"""
-    # Get AI validation response
-    ai_response = await get_validation_response(checkin.mood, checkin.brain_dump)
-    
-    checkin_obj = DailyCheckIn(
-        **checkin.model_dump(),
-        ai_response=ai_response
-    )
-    await db.checkins.insert_one(checkin_obj.model_dump())
-    return checkin_obj
-
-@api_router.get("/checkins", response_model=List[DailyCheckIn])
-async def get_checkins(limit: int = 7):
-    """Get recent check-ins"""
-    checkins = await db.checkins.find().sort("created_at", -1).limit(limit).to_list(limit)
-    return [DailyCheckIn(**c) for c in checkins]
-
-@api_router.get("/checkins/today", response_model=Optional[DailyCheckIn])
-async def get_today_checkin():
-    """Get today's check-in if exists"""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    checkin = await db.checkins.find_one({"created_at": {"$gte": today_start}})
-    if checkin:
-        return DailyCheckIn(**checkin)
-    return None
-
-# Chat
-@api_router.post("/chat", response_model=ChatMessage)
-async def send_chat_message(message: ChatMessageCreate):
-    """Send a message to the AI chatbot"""
-    # Save user message
-    user_msg = ChatMessage(
-        session_id=message.session_id,
-        role="user",
-        content=message.content
-    )
-    await db.chat_messages.insert_one(user_msg.model_dump())
-    
-    # Get AI response
-    ai_response = await get_ai_response(message.content, message.session_id)
-    
-    # Save AI message
-    ai_msg = ChatMessage(
-        session_id=message.session_id,
-        role="assistant",
-        content=ai_response
-    )
-    await db.chat_messages.insert_one(ai_msg.model_dump())
-    
-    return ai_msg
-
-@api_router.get("/chat/{session_id}", response_model=List[ChatMessage])
-async def get_chat_history(session_id: str, limit: int = 50):
-    """Get chat history for a session"""
-    messages = await db.chat_messages.find(
-        {"session_id": session_id}
-    ).sort("created_at", 1).limit(limit).to_list(limit)
-    return [ChatMessage(**m) for m in messages]
-
-# Community Presence (Simulated)
-@api_router.get("/community/presence", response_model=CommunityPresence)
-async def get_community_presence():
-    """Get simulated community presence based on time of day"""
-    current_hour = datetime.now().hour
-    
-    # More moms awake at night (8pm - 6am)
-    if 20 <= current_hour or current_hour < 6:
-        base_count = random.randint(45, 120)
-    elif 6 <= current_hour < 12:
-        base_count = random.randint(25, 60)
-    else:
-        base_count = random.randint(15, 40)
-    
-    # Sample Spanish names
-    names = [
-        "Marta", "Ana", "Lucía", "Carmen", "María", "Paula", "Laura",
-        "Elena", "Sara", "Isabel", "Sofía", "Alba", "Nuria", "Andrea",
-        "Cristina", "Patricia", "Rosa", "Claudia", "Diana", "Eva"
-    ]
-    
-    sample = random.sample(names, min(3, len(names)))
-    
-    return CommunityPresence(
-        online_count=base_count,
-        sample_names=sample,
-        message=f"{sample[0]} y {base_count - 1} mamás más están despiertas contigo ahora mismo."
-    )
-
-# ==================== BITÁCORA ROUTES (Sleep Coach Log) ====================
-
 async def generate_bitacora_summary(bitacora: DailyBitacora) -> str:
     """Generate AI summary of the daily log for the coach"""
     try:
         summary_parts = []
         
-        # Previous wake time
         if bitacora.previous_day_wake_time:
             summary_parts.append(f"Despertó ayer: {bitacora.previous_day_wake_time}")
         
-        # Naps
         naps_info = []
         for i, nap in enumerate([bitacora.nap_1, bitacora.nap_2, bitacora.nap_3], 1):
             if nap and (nap.laid_down_time or nap.duration_minutes):
@@ -407,27 +366,19 @@ async def generate_bitacora_summary(bitacora: DailyBitacora) -> str:
         if naps_info:
             summary_parts.append("Siestas: " + ", ".join(naps_info))
         
-        # Feeding
         if bitacora.how_baby_ate:
             summary_parts.append(f"Alimentación: {bitacora.how_baby_ate}")
-        
-        # Night routine
         if bitacora.baby_mood:
             summary_parts.append(f"Humor: {bitacora.baby_mood}")
         if bitacora.time_to_fall_asleep_minutes:
             summary_parts.append(f"Tardó en dormirse: {bitacora.time_to_fall_asleep_minutes}min")
-        
-        # Night wakings
         if bitacora.number_of_wakings is not None:
             summary_parts.append(f"Despertares nocturnos: {bitacora.number_of_wakings}")
-        
-        # Morning
         if bitacora.morning_wake_time:
             summary_parts.append(f"Despertó hoy: {bitacora.morning_wake_time}")
         
         summary_text = "\n".join(summary_parts)
         
-        # Generate AI insights if we have data
         if summary_parts:
             prompt = f"""Analiza este registro de sueño de un bebé y da un resumen breve (2-3 oraciones) 
 para la coach de sueño. Incluye patrones observados y posibles recomendaciones:
@@ -450,18 +401,411 @@ Responde solo con el resumen, sin introducciones."""
         logging.error(f"Bitacora AI Error: {e}")
         return "Registro guardado exitosamente."
 
+# ==================== AUTH ROUTES ====================
+
+@api_router.post("/auth/session")
+async def exchange_session(request: Request, response: Response):
+    """Exchange session_id for session_token"""
+    body = await request.json()
+    session_id = body.get("session_id")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id requerido")
+    
+    # Exchange with Emergent Auth
+    async with httpx.AsyncClient() as client:
+        auth_response = await client.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": session_id}
+        )
+    
+    if auth_response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Sesión inválida")
+    
+    user_data = auth_response.json()
+    session_data = SessionDataResponse(**user_data)
+    
+    # Generate user_id
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    # Check if user exists
+    existing_user = await db.users.find_one(
+        {"email": session_data.email},
+        {"_id": 0}
+    )
+    
+    if existing_user:
+        user_id = existing_user["user_id"]
+        role = existing_user.get("role", "user")
+    else:
+        # Determine role - check if this is the coach email
+        role = "coach" if session_data.email == COACH_EMAIL else "user"
+        
+        # Create new user
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": session_data.email,
+            "name": session_data.name,
+            "picture": session_data.picture,
+            "role": role,
+            "created_at": datetime.now(timezone.utc)
+        })
+    
+    # Create session
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": session_data.session_token,
+        "expires_at": expires_at,
+        "created_at": datetime.now(timezone.utc)
+    })
+    
+    # Set cookie
+    response.set_cookie(
+        key="session_token",
+        value=session_data.session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    # Get full user data
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    
+    return {
+        "user": user_doc,
+        "session_token": session_data.session_token
+    }
+
+@api_router.get("/auth/me")
+async def get_me(request: Request):
+    """Get current user info"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    return user.model_dump()
+
+@api_router.post("/auth/logout")
+async def logout(request: Request, response: Response):
+    """Logout user"""
+    session_token = await get_session_token(request)
+    if session_token:
+        await db.user_sessions.delete_one({"session_token": session_token})
+    
+    response.delete_cookie("session_token", path="/")
+    return {"message": "Sesión cerrada"}
+
+@api_router.post("/auth/upgrade-premium")
+async def upgrade_to_premium(request: Request):
+    """Upgrade user to premium (for testing)"""
+    user = await require_auth(request)
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"role": "premium"}}
+    )
+    return {"message": "Actualizado a premium", "role": "premium"}
+
+# ==================== DIRECT MESSAGES (Coach <-> User) ====================
+
+@api_router.post("/messages", response_model=DirectMessage)
+async def send_message(message: DirectMessageCreate, request: Request):
+    """Send a direct message (premium users to coach, or coach to users)"""
+    user = await require_auth(request)
+    
+    # Get coach user_id
+    coach = await db.users.find_one({"role": "coach"}, {"_id": 0})
+    coach_id = coach["user_id"] if coach else None
+    
+    # Validate sender/receiver
+    if user.role == "coach":
+        # Coach can send to any user
+        receiver = await db.users.find_one({"user_id": message.receiver_id}, {"_id": 0})
+        if not receiver:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    else:
+        # Regular users can only send to coach
+        if user.role != "premium":
+            raise HTTPException(status_code=403, detail="Solo usuarios premium pueden enviar mensajes")
+        if message.receiver_id != coach_id:
+            raise HTTPException(status_code=403, detail="Solo puedes enviar mensajes a la coach")
+    
+    msg = DirectMessage(
+        sender_id=user.user_id,
+        receiver_id=message.receiver_id,
+        content=message.content
+    )
+    await db.direct_messages.insert_one(msg.model_dump())
+    return msg
+
+@api_router.get("/messages/conversation/{other_user_id}", response_model=List[DirectMessage])
+async def get_conversation(other_user_id: str, request: Request, limit: int = 50):
+    """Get conversation with another user"""
+    user = await require_auth(request)
+    
+    # Get messages between current user and other user
+    messages = await db.direct_messages.find({
+        "$or": [
+            {"sender_id": user.user_id, "receiver_id": other_user_id},
+            {"sender_id": other_user_id, "receiver_id": user.user_id}
+        ]
+    }, {"_id": 0}).sort("created_at", 1).limit(limit).to_list(limit)
+    
+    # Mark messages as read
+    await db.direct_messages.update_many(
+        {"sender_id": other_user_id, "receiver_id": user.user_id, "read": False},
+        {"$set": {"read": True}}
+    )
+    
+    return [DirectMessage(**m) for m in messages]
+
+@api_router.get("/messages/coach-id")
+async def get_coach_id(request: Request):
+    """Get the coach's user_id"""
+    coach = await db.users.find_one({"role": "coach"}, {"_id": 0})
+    if not coach:
+        raise HTTPException(status_code=404, detail="Coach no encontrada")
+    return {"coach_id": coach["user_id"], "coach_name": coach["name"]}
+
+@api_router.get("/messages/unread-count")
+async def get_unread_count(request: Request):
+    """Get unread message count"""
+    user = await require_auth(request)
+    count = await db.direct_messages.count_documents({
+        "receiver_id": user.user_id,
+        "read": False
+    })
+    return {"unread_count": count}
+
+# ==================== COACH DASHBOARD ROUTES ====================
+
+@api_router.get("/coach/clients", response_model=List[Conversation])
+async def get_coach_clients(request: Request):
+    """Get all clients for the coach with their conversation status"""
+    await require_coach(request)
+    
+    # Get all premium users
+    users = await db.users.find(
+        {"role": {"$in": ["premium", "user"]}},
+        {"_id": 0}
+    ).to_list(1000)
+    
+    conversations = []
+    for user_doc in users:
+        # Get last message
+        last_msg = await db.direct_messages.find_one(
+            {"$or": [
+                {"sender_id": user_doc["user_id"]},
+                {"receiver_id": user_doc["user_id"]}
+            ]},
+            {"_id": 0},
+            sort=[("created_at", -1)]
+        )
+        
+        # Get unread count
+        unread = await db.direct_messages.count_documents({
+            "sender_id": user_doc["user_id"],
+            "read": False
+        })
+        
+        conversations.append(Conversation(
+            user_id=user_doc["user_id"],
+            user_name=user_doc["name"],
+            user_email=user_doc["email"],
+            user_picture=user_doc.get("picture"),
+            last_message=last_msg["content"] if last_msg else None,
+            last_message_at=last_msg["created_at"] if last_msg else None,
+            unread_count=unread
+        ))
+    
+    # Sort by last message time
+    conversations.sort(key=lambda x: x.last_message_at or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return conversations
+
+@api_router.get("/coach/client/{user_id}/bitacoras", response_model=List[DailyBitacora])
+async def get_client_bitacoras(user_id: str, request: Request, limit: int = 30):
+    """Get bitácoras for a specific client"""
+    await require_coach(request)
+    
+    bitacoras = await db.bitacoras.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return [DailyBitacora(**b) for b in bitacoras]
+
+@api_router.get("/coach/client/{user_id}/checkins", response_model=List[DailyCheckIn])
+async def get_client_checkins(user_id: str, request: Request, limit: int = 30):
+    """Get check-ins for a specific client"""
+    await require_coach(request)
+    
+    checkins = await db.checkins.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return [DailyCheckIn(**c) for c in checkins]
+
+@api_router.put("/coach/client/{user_id}/role")
+async def update_client_role(user_id: str, request: Request):
+    """Toggle client premium status"""
+    await require_coach(request)
+    
+    body = await request.json()
+    new_role = body.get("role", "user")
+    
+    if new_role not in ["user", "premium"]:
+        raise HTTPException(status_code=400, detail="Rol inválido")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"role": new_role}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    return {"message": f"Rol actualizado a {new_role}"}
+
+# ==================== EXISTING ROUTES (Updated with auth) ====================
+
+@api_router.get("/")
+async def root():
+    return {"message": "MAMÁ RESPIRA API - Bienvenida"}
+
+@api_router.get("/validations/random", response_model=ValidationCard)
+async def get_random_validation(category: Optional[str] = None):
+    """Get a random validation card"""
+    query = {}
+    if category:
+        query["category"] = category
+    
+    validations = await db.validation_cards.find(query, {"_id": 0}).to_list(100)
+    
+    if not validations:
+        for v in DEFAULT_VALIDATIONS:
+            card = ValidationCard(**v)
+            await db.validation_cards.insert_one(card.model_dump())
+        validations = await db.validation_cards.find(query, {"_id": 0}).to_list(100)
+    
+    selected = random.choice(validations)
+    return ValidationCard(**selected)
+
+@api_router.get("/validations", response_model=List[ValidationCard])
+async def get_all_validations():
+    """Get all validation cards"""
+    validations = await db.validation_cards.find({}, {"_id": 0}).to_list(100)
+    if not validations:
+        for v in DEFAULT_VALIDATIONS:
+            card = ValidationCard(**v)
+            await db.validation_cards.insert_one(card.model_dump())
+        validations = await db.validation_cards.find({}, {"_id": 0}).to_list(100)
+    return [ValidationCard(**v) for v in validations]
+
+@api_router.post("/checkins", response_model=DailyCheckIn)
+async def create_checkin(checkin: DailyCheckInCreate, request: Request):
+    """Create a new daily check-in"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    ai_response = await get_validation_response(checkin.mood, checkin.brain_dump)
+    
+    checkin_obj = DailyCheckIn(
+        **checkin.model_dump(),
+        user_id=user_id,
+        ai_response=ai_response
+    )
+    await db.checkins.insert_one(checkin_obj.model_dump())
+    return checkin_obj
+
+@api_router.get("/checkins", response_model=List[DailyCheckIn])
+async def get_checkins(request: Request, limit: int = 7):
+    """Get recent check-ins for current user"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    checkins = await db.checkins.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return [DailyCheckIn(**c) for c in checkins]
+
+@api_router.post("/chat", response_model=ChatMessage)
+async def send_chat_message(message: ChatMessageCreate, request: Request):
+    """Send a message to the AI chatbot"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    user_msg = ChatMessage(
+        session_id=message.session_id,
+        user_id=user_id,
+        role="user",
+        content=message.content
+    )
+    await db.chat_messages.insert_one(user_msg.model_dump())
+    
+    ai_response = await get_ai_response(message.content, message.session_id, user_id)
+    
+    ai_msg = ChatMessage(
+        session_id=message.session_id,
+        user_id=user_id,
+        role="assistant",
+        content=ai_response
+    )
+    await db.chat_messages.insert_one(ai_msg.model_dump())
+    
+    return ai_msg
+
+@api_router.get("/chat/{session_id}", response_model=List[ChatMessage])
+async def get_chat_history(session_id: str, request: Request, limit: int = 50):
+    """Get chat history for a session"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    messages = await db.chat_messages.find(
+        {"session_id": session_id, "user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", 1).limit(limit).to_list(limit)
+    return [ChatMessage(**m) for m in messages]
+
+@api_router.get("/community/presence", response_model=CommunityPresence)
+async def get_community_presence():
+    """Get simulated community presence"""
+    current_hour = datetime.now().hour
+    
+    if 20 <= current_hour or current_hour < 6:
+        base_count = random.randint(45, 120)
+    elif 6 <= current_hour < 12:
+        base_count = random.randint(25, 60)
+    else:
+        base_count = random.randint(15, 40)
+    
+    names = ["Marta", "Ana", "Lucía", "Carmen", "María", "Paula", "Laura",
+             "Elena", "Sara", "Isabel", "Sofía", "Alba", "Nuria", "Andrea"]
+    
+    sample = random.sample(names, min(3, len(names)))
+    
+    return CommunityPresence(
+        online_count=base_count,
+        sample_names=sample,
+        message=f"{sample[0]} y {base_count - 1} mamás más están despiertas contigo ahora mismo."
+    )
+
 @api_router.post("/bitacora", response_model=DailyBitacora)
-async def create_bitacora(bitacora: DailyBitacoraCreate):
+async def create_bitacora(bitacora: DailyBitacoraCreate, request: Request):
     """Create a new daily bitácora entry"""
-    # Get the count for day number
-    count = await db.bitacoras.count_documents({"user_id": "default_user"})
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    count = await db.bitacoras.count_documents({"user_id": user_id})
     
     bitacora_obj = DailyBitacora(
         **bitacora.model_dump(),
+        user_id=user_id,
         day_number=count + 1
     )
     
-    # Generate AI summary
     ai_summary = await generate_bitacora_summary(bitacora_obj)
     bitacora_obj.ai_summary = ai_summary
     
@@ -469,52 +813,33 @@ async def create_bitacora(bitacora: DailyBitacoraCreate):
     return bitacora_obj
 
 @api_router.get("/bitacora", response_model=List[DailyBitacora])
-async def get_bitacoras(limit: int = 30):
-    """Get recent bitácora entries"""
-    bitacoras = await db.bitacoras.find().sort("created_at", -1).limit(limit).to_list(limit)
+async def get_bitacoras(request: Request, limit: int = 30):
+    """Get recent bitácora entries for current user"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
+    bitacoras = await db.bitacoras.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
     return [DailyBitacora(**b) for b in bitacoras]
 
 @api_router.get("/bitacora/today", response_model=Optional[DailyBitacora])
-async def get_today_bitacora():
+async def get_today_bitacora(request: Request):
     """Get today's bitácora if exists"""
+    user = await get_current_user(request)
+    user_id = user.user_id if user else "default_user"
+    
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    bitacora = await db.bitacoras.find_one({"date": today})
+    bitacora = await db.bitacoras.find_one(
+        {"user_id": user_id, "date": today},
+        {"_id": 0}
+    )
     if bitacora:
         return DailyBitacora(**bitacora)
     return None
 
-@api_router.put("/bitacora/{bitacora_id}", response_model=DailyBitacora)
-async def update_bitacora(bitacora_id: str, bitacora: DailyBitacoraCreate):
-    """Update an existing bitácora entry"""
-    existing = await db.bitacoras.find_one({"id": bitacora_id})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Bitácora no encontrada")
-    
-    update_data = bitacora.model_dump()
-    update_data["updated_at"] = datetime.now(timezone.utc)
-    
-    # Regenerate AI summary
-    updated_obj = DailyBitacora(**{**existing, **update_data})
-    ai_summary = await generate_bitacora_summary(updated_obj)
-    update_data["ai_summary"] = ai_summary
-    
-    await db.bitacoras.update_one(
-        {"id": bitacora_id},
-        {"$set": update_data}
-    )
-    
-    result = await db.bitacoras.find_one({"id": bitacora_id})
-    return DailyBitacora(**result)
-
-@api_router.get("/bitacora/{bitacora_id}", response_model=DailyBitacora)
-async def get_bitacora_by_id(bitacora_id: str):
-    """Get a specific bitácora entry"""
-    bitacora = await db.bitacoras.find_one({"id": bitacora_id})
-    if not bitacora:
-        raise HTTPException(status_code=404, detail="Bitácora no encontrada")
-    return DailyBitacora(**bitacora)
-
-# Include the router in the main app
+# Include the router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -525,7 +850,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
