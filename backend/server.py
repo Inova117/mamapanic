@@ -383,6 +383,137 @@ async def get_community_presence():
         message=f"{sample[0]} y {base_count - 1} mamás más están despiertas contigo ahora mismo."
     )
 
+# ==================== BITÁCORA ROUTES (Sleep Coach Log) ====================
+
+async def generate_bitacora_summary(bitacora: DailyBitacora) -> str:
+    """Generate AI summary of the daily log for the coach"""
+    try:
+        summary_parts = []
+        
+        # Previous wake time
+        if bitacora.previous_day_wake_time:
+            summary_parts.append(f"Despertó ayer: {bitacora.previous_day_wake_time}")
+        
+        # Naps
+        naps_info = []
+        for i, nap in enumerate([bitacora.nap_1, bitacora.nap_2, bitacora.nap_3], 1):
+            if nap and (nap.laid_down_time or nap.duration_minutes):
+                nap_str = f"Siesta {i}"
+                if nap.duration_minutes:
+                    nap_str += f": {nap.duration_minutes}min"
+                if nap.how_fell_asleep:
+                    nap_str += f" ({nap.how_fell_asleep})"
+                naps_info.append(nap_str)
+        if naps_info:
+            summary_parts.append("Siestas: " + ", ".join(naps_info))
+        
+        # Feeding
+        if bitacora.how_baby_ate:
+            summary_parts.append(f"Alimentación: {bitacora.how_baby_ate}")
+        
+        # Night routine
+        if bitacora.baby_mood:
+            summary_parts.append(f"Humor: {bitacora.baby_mood}")
+        if bitacora.time_to_fall_asleep_minutes:
+            summary_parts.append(f"Tardó en dormirse: {bitacora.time_to_fall_asleep_minutes}min")
+        
+        # Night wakings
+        if bitacora.number_of_wakings is not None:
+            summary_parts.append(f"Despertares nocturnos: {bitacora.number_of_wakings}")
+        
+        # Morning
+        if bitacora.morning_wake_time:
+            summary_parts.append(f"Despertó hoy: {bitacora.morning_wake_time}")
+        
+        summary_text = "\n".join(summary_parts)
+        
+        # Generate AI insights if we have data
+        if summary_parts:
+            prompt = f"""Analiza este registro de sueño de un bebé y da un resumen breve (2-3 oraciones) 
+para la coach de sueño. Incluye patrones observados y posibles recomendaciones:
+
+{summary_text}
+
+Responde solo con el resumen, sin introducciones."""
+            
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id="bitacora_" + str(uuid.uuid4()),
+                system_message="Eres una coach de sueño infantil profesional. Da análisis concisos y útiles."
+            ).with_model("anthropic", "claude-sonnet-4-20250514")
+            
+            response = await chat.send_message(UserMessage(text=prompt))
+            return response
+        
+        return "Registro guardado. La coach revisará los datos."
+    except Exception as e:
+        logging.error(f"Bitacora AI Error: {e}")
+        return "Registro guardado exitosamente."
+
+@api_router.post("/bitacora", response_model=DailyBitacora)
+async def create_bitacora(bitacora: DailyBitacoraCreate):
+    """Create a new daily bitácora entry"""
+    # Get the count for day number
+    count = await db.bitacoras.count_documents({"user_id": "default_user"})
+    
+    bitacora_obj = DailyBitacora(
+        **bitacora.model_dump(),
+        day_number=count + 1
+    )
+    
+    # Generate AI summary
+    ai_summary = await generate_bitacora_summary(bitacora_obj)
+    bitacora_obj.ai_summary = ai_summary
+    
+    await db.bitacoras.insert_one(bitacora_obj.model_dump())
+    return bitacora_obj
+
+@api_router.get("/bitacora", response_model=List[DailyBitacora])
+async def get_bitacoras(limit: int = 30):
+    """Get recent bitácora entries"""
+    bitacoras = await db.bitacoras.find().sort("created_at", -1).limit(limit).to_list(limit)
+    return [DailyBitacora(**b) for b in bitacoras]
+
+@api_router.get("/bitacora/today", response_model=Optional[DailyBitacora])
+async def get_today_bitacora():
+    """Get today's bitácora if exists"""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    bitacora = await db.bitacoras.find_one({"date": today})
+    if bitacora:
+        return DailyBitacora(**bitacora)
+    return None
+
+@api_router.put("/bitacora/{bitacora_id}", response_model=DailyBitacora)
+async def update_bitacora(bitacora_id: str, bitacora: DailyBitacoraCreate):
+    """Update an existing bitácora entry"""
+    existing = await db.bitacoras.find_one({"id": bitacora_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Bitácora no encontrada")
+    
+    update_data = bitacora.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    
+    # Regenerate AI summary
+    updated_obj = DailyBitacora(**{**existing, **update_data})
+    ai_summary = await generate_bitacora_summary(updated_obj)
+    update_data["ai_summary"] = ai_summary
+    
+    await db.bitacoras.update_one(
+        {"id": bitacora_id},
+        {"$set": update_data}
+    )
+    
+    result = await db.bitacoras.find_one({"id": bitacora_id})
+    return DailyBitacora(**result)
+
+@api_router.get("/bitacora/{bitacora_id}", response_model=DailyBitacora)
+async def get_bitacora_by_id(bitacora_id: str):
+    """Get a specific bitácora entry"""
+    bitacora = await db.bitacoras.find_one({"id": bitacora_id})
+    if not bitacora:
+        raise HTTPException(status_code=404, detail="Bitácora no encontrada")
+    return DailyBitacora(**bitacora)
+
 # Include the router in the main app
 app.include_router(api_router)
 
