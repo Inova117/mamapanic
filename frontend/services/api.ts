@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { ValidationCard, DailyCheckIn, DailyCheckInCreate, ChatMessage, CommunityPresence } from '../types';
+import { 
+  ValidationCard, 
+  DailyCheckIn, 
+  DailyCheckInCreate, 
+  ChatMessage, 
+  CommunityPresence,
+  DailyBitacora,
+  DailyBitacoraCreate
+} from '../types';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
