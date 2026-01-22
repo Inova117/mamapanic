@@ -47,7 +47,7 @@ export default function BitacoraScreen() {
 
   if (showInput) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.inputHeader}>
           <TouchableOpacity 
             style={styles.closeButton}
@@ -67,7 +67,7 @@ export default function BitacoraScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
