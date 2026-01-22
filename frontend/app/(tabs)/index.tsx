@@ -131,6 +131,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   panicContainer: {
-    paddingBottom: spacing.md,
+    paddingBottom: 80, // Space above tab bar
   },
 });
