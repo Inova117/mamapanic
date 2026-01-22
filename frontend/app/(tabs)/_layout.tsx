@@ -1,10 +1,14 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View, Text } from 'react-native';
 import { colors, fontSize, spacing } from '../../theme/theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const isCoach = user?.role === 'coach';
+
   return (
     <Tabs
       screenOptions={{
@@ -39,6 +43,35 @@ export default function TabLayout() {
           title: 'Abuela',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="chatbubble-ellipses" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Coach',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="mail" size={size} color={color} />
+          ),
+        }}
+      />
+      {isCoach && (
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Clientes',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size} color={color} />
           ),
         }}
       />
