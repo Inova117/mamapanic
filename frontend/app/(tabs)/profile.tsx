@@ -12,66 +12,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Configure notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 export default function ProfileScreen() {
-  const { user, isAuthenticated, login, logout, refreshUser } = useAuth();
+  const { user, isAuthenticated, login, logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('21:00');
 
-  useEffect(() => {
-    checkNotificationPermissions();
-  }, []);
-
-  const checkNotificationPermissions = async () => {
-    const { status } = await Notifications.getPermissionsAsync();
-    setNotificationsEnabled(status === 'granted');
-  };
-
   const toggleNotifications = async (value: boolean) => {
+    setNotificationsEnabled(value);
     if (value) {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status === 'granted') {
-        setNotificationsEnabled(true);
-        await scheduleReminder();
-        Alert.alert('Recordatorios activados', 'Te recordaremos llenar tu bitácora cada noche.');
-      } else {
-        Alert.alert('Permisos necesarios', 'Por favor habilita las notificaciones en la configuración de tu dispositivo.');
-      }
-    } else {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-      setNotificationsEnabled(false);
+      Alert.alert(
+        'Recordatorios activados', 
+        'Te recordaremos llenar tu bitácora cada noche a las ' + reminderTime + '.\n\nNota: Las notificaciones push requieren una build de desarrollo.'
+      );
     }
-  };
-
-  const scheduleReminder = async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-
-    const [hours, minutes] = reminderTime.split(':').map(Number);
-
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Hora de tu bitácora 🌙',
-        body: '¿Cómo fue el día de hoy? Registra el sueño de tu bebé.',
-        sound: true,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DAILY,
-        hour: hours,
-        minute: minutes,
-      },
-    });
   };
 
   const handleLogout = () => {
@@ -98,8 +54,11 @@ export default function ProfileScreen() {
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.loginContainer}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView 
+          contentContainerStyle={styles.loginContainer}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.logoContainer}>
             <Ionicons name="heart" size={64} color={colors.accent.terracotta} />
             <Text style={styles.logoText}>MAMÁ RESPIRA</Text>
@@ -126,8 +85,12 @@ export default function ProfileScreen() {
   const roleBadge = getRoleBadge(user?.role || 'user');
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Mi Perfil</Text>
@@ -236,6 +199,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Space for tab bar
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -402,6 +368,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingBottom: 100,
   },
   logoContainer: {
     alignItems: 'center',
