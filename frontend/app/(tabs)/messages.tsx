@@ -128,7 +128,7 @@ export default function MessagesScreen() {
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loginPrompt}>
           <Ionicons name="mail" size={64} color={colors.accent.gold} />
           <Text style={styles.loginTitle}>Mensajes con tu Coach</Text>
