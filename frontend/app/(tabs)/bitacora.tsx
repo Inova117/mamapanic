@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
@@ -49,7 +49,7 @@ export default function BitacoraScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.inputHeader}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.closeButton}
             onPress={handleClose}
           >
@@ -58,7 +58,7 @@ export default function BitacoraScreen() {
           <Text style={styles.inputTitle}>Bitácora del Día</Text>
           <View style={{ width: 40 }} />
         </View>
-        <SleepCoachBitacora 
+        <SleepCoachBitacora
           onComplete={handleBitacoraComplete}
           onClose={handleClose}
         />
@@ -68,7 +68,7 @@ export default function BitacoraScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -188,7 +188,7 @@ export default function BitacoraScreen() {
 
       {/* New Bitácora Button */}
       <View style={styles.fabContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.fab}
           onPress={() => setShowInput(true)}
           activeOpacity={0.8}
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: Platform.OS === 'android' ? 120 : 90, // Increased for better visibility
     left: spacing.lg,
     right: spacing.lg,
   },

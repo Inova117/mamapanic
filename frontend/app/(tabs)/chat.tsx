@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -84,8 +84,8 @@ export default function ChatScreen() {
   const renderMessage = (message: ChatMessage) => {
     const isUser = message.role === 'user';
     return (
-      <View 
-        key={message.id} 
+      <View
+        key={message.id}
         style={[
           styles.messageBubble,
           isUser ? styles.userBubble : styles.assistantBubble,
@@ -121,10 +121,10 @@ export default function ChatScreen() {
       </View>
 
       {/* Messages */}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.messagesContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -142,23 +142,23 @@ export default function ChatScreen() {
               <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.text.muted} />
               <Text style={styles.emptyTitle}>Hola, querida</Text>
               <Text style={styles.emptyText}>
-                Soy la Abuela Sabia. Estoy aquí para escucharte sin juzgarte. 
+                Soy la Abuela Sabia. Estoy aquí para escucharte sin juzgarte.
                 Cuéntame cómo te sientes.
               </Text>
               <View style={styles.suggestionsContainer}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.suggestion}
                   onPress={() => setInputText('No puedo más, estoy agotada')}
                 >
                   <Text style={styles.suggestionText}>Estoy agotada</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.suggestion}
                   onPress={() => setInputText('Mi bebé no para de llorar')}
                 >
                   <Text style={styles.suggestionText}>Mi bebé no para de llorar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.suggestion}
                   onPress={() => setInputText('Me siento sola')}
                 >
@@ -169,7 +169,7 @@ export default function ChatScreen() {
           ) : (
             messages.map(renderMessage)
           )}
-          
+
           {isLoading && (
             <View style={styles.typingIndicator}>
               <Ionicons name="heart-circle" size={20} color={colors.accent.terracotta} />
@@ -189,7 +189,7 @@ export default function ChatScreen() {
             multiline
             maxLength={500}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.sendButton,
               (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
@@ -197,10 +197,10 @@ export default function ChatScreen() {
             onPress={handleSend}
             disabled={!inputText.trim() || isLoading}
           >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={inputText.trim() && !isLoading ? colors.text.primary : colors.text.muted} 
+            <Ionicons
+              name="send"
+              size={20}
+              color={inputText.trim() && !isLoading ? colors.text.primary : colors.text.muted}
             />
           </TouchableOpacity>
         </View>
@@ -340,6 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    paddingBottom: Platform.OS === 'android' ? 110 : 90, // Enough space above tab bar
     borderTopWidth: 1,
     borderTopColor: colors.background.card,
     gap: spacing.sm,

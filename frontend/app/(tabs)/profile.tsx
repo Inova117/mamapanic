@@ -16,7 +16,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ProfileScreen() {
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { user, isAuthenticated, signIn, signOut, userRole } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('21:00');
 
@@ -24,7 +24,7 @@ export default function ProfileScreen() {
     setNotificationsEnabled(value);
     if (value) {
       Alert.alert(
-        'Recordatorios activados', 
+        'Recordatorios activados',
         'Te recordaremos llenar tu bitácora cada noche a las ' + reminderTime + '.\n\nNota: Las notificaciones push requieren una build de desarrollo.'
       );
     }
@@ -36,7 +36,7 @@ export default function ProfileScreen() {
       '¿Estás segura de que quieres cerrar sesión?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar sesión', onPress: logout, style: 'destructive' },
+        { text: 'Cerrar sesión', onPress: signOut, style: 'destructive' },
       ]
     );
   };
@@ -55,7 +55,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.loginContainer}
           showsVerticalScrollIndicator={false}
         >
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
             Inicia sesión para guardar tu progreso, comunicarte con tu coach y recibir recordatorios.
           </Text>
 
-          <TouchableOpacity style={styles.googleButton} onPress={login}>
+          <TouchableOpacity style={styles.googleButton} onPress={signIn}>
             <Ionicons name="logo-google" size={24} color={colors.text.primary} />
             <Text style={styles.googleButtonText}>Continuar con Google</Text>
           </TouchableOpacity>
@@ -82,12 +82,12 @@ export default function ProfileScreen() {
     );
   }
 
-  const roleBadge = getRoleBadge(user?.role || 'user');
+  const roleBadge = getRoleBadge(userRole || 'user');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -115,7 +115,7 @@ export default function ProfileScreen() {
         {/* Notifications Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recordatorios</Text>
-          
+
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
               <Ionicons name="notifications" size={24} color={colors.accent.gold} />
@@ -143,7 +143,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Premium Section */}
-        {user?.role === 'user' && (
+        {userRole === 'user' && (
           <View style={styles.premiumCard}>
             <Ionicons name="star" size={32} color={colors.accent.gold} />
             <Text style={styles.premiumTitle}>Actualiza a Premium</Text>
@@ -159,7 +159,7 @@ export default function ProfileScreen() {
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cuenta</Text>
-          
+
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="help-circle-outline" size={24} color={colors.text.secondary} />
             <Text style={styles.menuItemText}>Ayuda y soporte</Text>

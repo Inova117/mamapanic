@@ -70,7 +70,7 @@ export const CrisisModeScreen: React.FC = () => {
             <Text style={styles.phaseTitle}>Respira conmigo</Text>
             <Text style={styles.phaseSubtitle}>Técnica 4-7-8 para calmar tu sistema nervioso</Text>
             <BreathingCircle onComplete={handleBreathingComplete} cycles={2} />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.skipButton}
               onPress={handleBreathingComplete}
             >
@@ -78,7 +78,7 @@ export const CrisisModeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         );
-      
+
       case 'validation':
         return (
           <View style={styles.phaseContainer}>
@@ -87,7 +87,7 @@ export const CrisisModeScreen: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.phaseTitle}>Recuerda esto</Text>
             {validation && (
-              <ValidationCard 
+              <ValidationCard
                 validation={validation}
                 onNext={handleNextValidation}
                 onContinue={handleFeelBetter}
@@ -95,7 +95,7 @@ export const CrisisModeScreen: React.FC = () => {
             )}
           </View>
         );
-      
+
       case 'community':
         return (
           <View style={styles.phaseContainer}>
@@ -109,14 +109,14 @@ export const CrisisModeScreen: React.FC = () => {
               <Text style={styles.communityText}>
                 Hay una comunidad de mamás que entienden exactamente lo que estás viviendo.
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.connectButton}
                 onPress={handleConnectCommunity}
               >
                 <Ionicons name="chatbubbles" size={24} color={colors.text.primary} />
                 <Text style={styles.connectButtonText}>Hablar con la Abuela Sabia</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.doneButton}
                 onPress={handleClose}
               >
@@ -125,7 +125,7 @@ export const CrisisModeScreen: React.FC = () => {
             </View>
           </View>
         );
-      
+
       default:
         return null;
     }
@@ -134,7 +134,7 @@ export const CrisisModeScreen: React.FC = () => {
   return (
     <>
       {/* Main Panic Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.panicButton}
         onPress={handlePanicPress}
         activeOpacity={0.8}
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   panicButton: {
     backgroundColor: colors.accent.terracotta,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: spacing.md, // Reduced from lg
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     shadowColor: colors.accent.terracotta,
@@ -176,15 +176,15 @@ const styles = StyleSheet.create({
   },
   panicButtonInner: {
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs, // Reduced from sm
   },
   panicButtonText: {
-    fontSize: fontSize.xxl,
+    fontSize: fontSize.xl, // Reduced from xxl
     fontWeight: '700',
     color: colors.text.primary,
   },
   panicButtonSubtext: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs, // Reduced from sm
     color: colors.text.primary,
     opacity: 0.8,
   },

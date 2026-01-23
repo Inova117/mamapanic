@@ -1,231 +1,140 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
-import axios from 'axios';
+import { supabase } from '../lib/supabase';
+import { Session, User } from '@supabase/supabase-js';
+import { navigateToHome } from '../services/navigation';
+import { useRouter, useSegments } from 'expo-router';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-
-export interface User {
-  user_id: string;
-  email: string;
-  name: string;
-  picture?: string;
-  role: 'user' | 'premium' | 'coach';
-  created_at: string;
-}
-
+// Define the context shape
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  userRole: string | null; // Role from profiles table
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-WebBrowser.maybeCompleteAuthSession();
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const router = useRouter();
+  const segments = useSegments();
 
-  // Get redirect URL based on platform
-  const getRedirectUrl = () => {
-    if (Platform.OS === 'web') {
-      return `${window.location.origin}/`;
-    }
-    return Linking.createURL('/');
-  };
-
-  // Save session token
-  const saveToken = async (token: string) => {
-    if (Platform.OS === 'web') {
-      localStorage.setItem('session_token', token);
-    } else {
-      await SecureStore.setItemAsync('session_token', token);
-    }
-  };
-
-  // Get session token
-  const getToken = async (): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      return localStorage.getItem('session_token');
-    }
-    return await SecureStore.getItemAsync('session_token');
-  };
-
-  // Delete session token
-  const deleteToken = async () => {
-    if (Platform.OS === 'web') {
-      localStorage.removeItem('session_token');
-    } else {
-      await SecureStore.deleteItemAsync('session_token');
-    }
-  };
-
-  // Extract session_id from URL
-  const extractSessionId = (url: string): string | null => {
-    // Try hash first (#session_id=...)
-    const hashMatch = url.match(/[#?]session_id=([^&]+)/);
-    if (hashMatch) return hashMatch[1];
-    
-    // Try query param (?session_id=...)
-    const queryMatch = url.match(/[?&]session_id=([^&]+)/);
-    if (queryMatch) return queryMatch[1];
-    
-    return null;
-  };
-
-  // Exchange session_id for session_token
-  const exchangeSession = async (sessionId: string): Promise<boolean> => {
+  // Fetch user role from profiles table
+  const fetchUserRole = async (userId: string) => {
     try {
-      const response = await axios.post(`${API_URL}/api/auth/session`, {
-        session_id: sessionId
-      });
-      
-      const { user: userData, session_token } = response.data;
-      await saveToken(session_token);
-      setUser(userData);
-      return true;
-    } catch (error) {
-      console.error('Error exchanging session:', error);
-      return false;
-    }
-  };
+      console.log('🔍 Fetching role for user ID:', userId);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
 
-  // Check existing session
-  const checkSession = async () => {
-    try {
-      const token = await getToken();
-      if (!token) {
-        setIsLoading(false);
-        return;
+      if (error) {
+        console.error('❌ Error fetching role:', error);
+      } else if (data) {
+        console.log('✅ User role fetched:', data.role);
+        setUserRole(data.role);
+      } else {
+        console.log('⚠️ No role data returned');
       }
-
-      const response = await axios.get(`${API_URL}/api/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setUser(response.data);
     } catch (error) {
-      // Session invalid, clear token
-      await deleteToken();
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle URL for auth callback
-  const handleUrl = async (url: string) => {
-    const sessionId = extractSessionId(url);
-    if (sessionId) {
-      setIsLoading(true);
-      await exchangeSession(sessionId);
-      setIsLoading(false);
-      
-      // Clean URL on web
-      if (Platform.OS === 'web') {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
+      console.error('💥 Exception in fetchUserRole:', error);
     }
   };
 
   // Initialize auth
   useEffect(() => {
-    const init = async () => {
-      // Check for session_id in URL first (web)
-      if (Platform.OS === 'web') {
-        const hash = window.location.hash;
-        const search = window.location.search;
-        const fullUrl = window.location.href;
-        
-        if (hash.includes('session_id') || search.includes('session_id')) {
-          await handleUrl(fullUrl);
-          return;
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchUserRole(session.user.id);
       }
+      setIsLoading(false);
+    });
 
-      // Check for cold start URL (mobile)
-      if (Platform.OS !== 'web') {
-        const initialUrl = await Linking.getInitialURL();
-        if (initialUrl) {
-          const sessionId = extractSessionId(initialUrl);
-          if (sessionId) {
-            setIsLoading(true);
-            await exchangeSession(sessionId);
-            setIsLoading(false);
-            return;
-          }
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserRole(session.user.id);
+        } else {
+          setUserRole(null);
         }
+        setIsLoading(false);
       }
+    );
 
-      // Check existing session
-      await checkSession();
-    };
-
-    init();
-
-    // Listen for URL changes (mobile hot link)
-    if (Platform.OS !== 'web') {
-      const subscription = Linking.addEventListener('url', ({ url }) => {
-        handleUrl(url);
-      });
-      return () => subscription.remove();
-    }
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Login
-  const login = async () => {
-    const redirectUrl = getRedirectUrl();
-    const authUrl = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-    
-    if (Platform.OS === 'web') {
-      window.location.href = authUrl;
-    } else {
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
-      
-      if (result.type === 'success' && result.url) {
-        await handleUrl(result.url);
-      }
+  // Protect routes
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === 'auth';
+
+    if (!user && !inAuthGroup) {
+      // Redirect to login if not authenticated and not in auth group
+      router.replace('/auth/login');
+    } else if (user && inAuthGroup) {
+      // Redirect to home if authenticated and in auth group
+      navigateToHome(router);
     }
+  }, [user, segments, isLoading]);
+
+  // Sign In
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+    // Navigation is handled by the useEffect above
   };
 
-  // Logout
-  const logout = async () => {
-    try {
-      const token = await getToken();
-      if (token) {
-        await axios.post(`${API_URL}/api/auth/logout`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+  // Sign Up
+  const signUp = async (email: string, password: string, name: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name }
       }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      await deleteToken();
-      setUser(null);
-    }
+    });
+
+    if (error) throw error;
+    // Navigation is handled by the useEffect above
   };
 
-  // Refresh user data
-  const refreshUser = async () => {
-    await checkSession();
+  // Sign Out
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        session,
         isLoading,
         isAuthenticated: !!user,
-        login,
-        logout,
-        refreshUser,
+        userRole,
+        signIn,
+        signUp,
+        signOut,
       }}
     >
       {children}
@@ -242,3 +151,4 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
+

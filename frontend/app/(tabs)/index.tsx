@@ -9,7 +9,7 @@ import CommunityBar from '../../components/CommunityBar';
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -131,6 +131,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   panicContainer: {
-    paddingBottom: 80, // Space above tab bar
+    paddingBottom: 130, // Increased for better visibility above tab bar
   },
 });

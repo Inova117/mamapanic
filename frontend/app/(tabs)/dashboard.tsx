@@ -98,10 +98,10 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    if (user?.role === 'coach') {
+    if (userRole === 'coach') {
       fetchClients();
     }
-  }, [user]);
+  }, [userRole]);
 
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);
@@ -109,7 +109,7 @@ export default function DashboardScreen() {
     fetchClientBitacoras(client.user_id);
   };
 
-  if (user?.role !== 'coach') {
+  if (userRole !== 'coach') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.accessDenied}>
@@ -155,7 +155,7 @@ export default function DashboardScreen() {
         {/* Clients List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Clientes</Text>
-          
+
           {isLoading ? (
             <ActivityIndicator color={colors.accent.sage} size="large" />
           ) : clients.length === 0 ? (
@@ -231,7 +231,7 @@ export default function DashboardScreen() {
             {/* Bitácoras */}
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>Bitácoras recientes</Text>
-              
+
               {loadingBitacoras ? (
                 <ActivityIndicator color={colors.accent.sage} />
               ) : clientBitacoras.length === 0 ? (

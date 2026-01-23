@@ -9,7 +9,7 @@ export const colors = {
     card: '#334155',       // Card backgrounds
     elevated: '#475569',   // Elevated elements
   },
-  
+
   // Accent Colors - Warm and Calming
   accent: {
     terracotta: '#e07a5f',   // Panic button, urgent actions
@@ -19,7 +19,7 @@ export const colors = {
     gold: '#f2cc8f',         // Highlights, important info
     goldLight: '#f8e4b8',    // Gold light variant
   },
-  
+
   // Text Colors
   text: {
     primary: '#f4f1de',      // Main text (cream on dark)
@@ -27,14 +27,14 @@ export const colors = {
     muted: '#64748b',        // Disabled/placeholder
     inverse: '#1e293b',      // Text on light backgrounds
   },
-  
+
   // Mood Colors
   mood: {
     sad: '#e07a5f',          // Terracotta for sad
     neutral: '#f2cc8f',      // Gold for neutral
     happy: '#81b29a',        // Sage for happy
   },
-  
+
   // Status Colors
   status: {
     success: '#81b29a',
@@ -42,7 +42,7 @@ export const colors = {
     error: '#e07a5f',
     info: '#94a3b8',
   },
-  
+
   // Breathing Animation Colors
   breathing: {
     inhale: '#81b29a',       // Sage - inhale
@@ -78,6 +78,13 @@ export const borderRadius = {
   full: 9999,
 };
 
+// Font families
+export const fonts = {
+  regular: 'System',
+  medium: 'System',
+  bold: 'System',
+};
+
 // Touch target minimums (accessibility)
 export const touchTarget = {
   min: 44, // iOS minimum
@@ -90,5 +97,6 @@ export default {
   spacing,
   fontSize,
   borderRadius,
+  fonts,
   touchTarget,
 };
