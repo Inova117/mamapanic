@@ -12,7 +12,11 @@ import uuid
 import httpx
 from datetime import datetime, timezone, timedelta
 import random
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+# Import new auth and AI modules
+from auth.jwt_handler import create_access_token, verify_token, extract_token_from_header
+from auth.password_handler import hash_password, verify_password
+from ai.claude_client import ClaudeClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -22,8 +26,12 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'mama_respira')]
 
-# Emergent LLM Key
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+# Anthropic API Key
+ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'change-in-production')
+
+# Initialize Claude client
+claude_client = ClaudeClient(ANTHROPIC_API_KEY)
 
 # Create the main app
 app = FastAPI(title="MAMÁ RESPIRA API")
@@ -41,7 +49,17 @@ class User(BaseModel):
     name: str
     picture: Optional[str] = None
     role: str = "user"  # "user", "premium", "coach"
+    password_hash: Optional[str] = None  # Only used internally, not returned in API
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 class UserSession(BaseModel):
     user_id: str
@@ -227,43 +245,25 @@ Recuerda: Tu objetivo es que la mamá pase de pánico a calma en menos de 30 seg
 # ==================== AUTH HELPERS ====================
 
 async def get_session_token(request: Request) -> Optional[str]:
-    """Get session token from cookie or Authorization header"""
-    # Try cookie first
-    session_token = request.cookies.get("session_token")
-    if session_token:
-        return session_token
-    
-    # Try Authorization header
+    """Get JWT token from Authorization header"""
     auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header[7:]
-    
-    return None
+    return extract_token_from_header(auth_header)
 
 async def get_current_user(request: Request) -> Optional[User]:
-    """Get current user from session token"""
-    session_token = await get_session_token(request)
-    if not session_token:
+    """Get current user from JWT token"""
+    token = await get_session_token(request)
+    if not token:
         return None
     
-    session = await db.user_sessions.find_one(
-        {"session_token": session_token},
-        {"_id": 0}
-    )
-    if not session:
+    # Verify JWT token
+    payload = verify_token(token)
+    if not payload:
         return None
     
-    # Check expiry with timezone awareness
-    expires_at = session["expires_at"]
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    
-    if expires_at <= datetime.now(timezone.utc):
-        return None
-    
+    # Get user from database
     user_doc = await db.users.find_one(
-        {"user_id": session["user_id"]},
-        {"_id": 0}
+        {"user_id": payload["user_id"]},
+        {"_id": 0, "password_hash": 0}  # Exclude password hash from response
     )
     if user_doc:
         return User(**user_doc)
@@ -293,28 +293,29 @@ async def require_coach(request: Request) -> User:
 # ==================== AI HELPERS ====================
 
 async def get_ai_response(user_message: str, session_id: str, user_id: str) -> str:
-    """Get AI response using Claude via Emergent integration"""
+    """Get AI response using Claude via direct Anthropic SDK"""
     try:
+        # Get conversation history
         history = await db.chat_messages.find(
             {"session_id": session_id, "user_id": user_id}
         ).sort("created_at", -1).limit(10).to_list(10)
         
-        context = ""
+        # Format history for Claude
+        conversation_history = []
         if history:
             history.reverse()
             for msg in history:
-                role = "Mamá" if msg["role"] == "user" else "Abuela"
-                context += f"{role}: {msg['content']}\n"
+                conversation_history.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
         
-        full_message = f"{context}\nMamá: {user_message}" if context else user_message
-        
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=AI_SYSTEM_PROMPT
-        ).with_model("anthropic", "claude-sonnet-4-20250514")
-        
-        response = await chat.send_message(UserMessage(text=full_message))
+        # Call Claude
+        response = await claude_client.send_message(
+            system_prompt=AI_SYSTEM_PROMPT,
+            user_message=user_message,
+            conversation_history=conversation_history
+        )
         return response
     except Exception as e:
         logging.error(f"AI Error: {e}")
@@ -334,13 +335,11 @@ async def get_validation_response(mood: int, brain_dump: Optional[str] = None) -
             message += f" Ella escribió: '{brain_dump}'"
         message += "\n\nResponde con una validación corta y cariñosa (máximo 2 oraciones)."
         
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id="validation_" + str(uuid.uuid4()),
-            system_message=AI_SYSTEM_PROMPT
-        ).with_model("anthropic", "claude-sonnet-4-20250514")
-        
-        response = await chat.send_message(UserMessage(text=message))
+        response = await claude_client.send_message(
+            system_prompt=AI_SYSTEM_PROMPT,
+            user_message=message,
+            max_tokens=200
+        )
         return response
     except Exception as e:
         logging.error(f"Validation AI Error: {e}")
@@ -387,13 +386,11 @@ para la coach de sueño. Incluye patrones observados y posibles recomendaciones:
 
 Responde solo con el resumen, sin introducciones."""
             
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id="bitacora_" + str(uuid.uuid4()),
-                system_message="Eres una coach de sueño infantil profesional. Da análisis concisos y útiles."
-            ).with_model("anthropic", "claude-sonnet-4-20250514")
-            
-            response = await chat.send_message(UserMessage(text=prompt))
+            response = await claude_client.send_message(
+                system_prompt="Eres una coach de sueño infantil profesional. Da análisis concisos y útiles.",
+                user_message=prompt,
+                max_tokens=300
+            )
             return response
         
         return "Registro guardado. La coach revisará los datos."
@@ -403,80 +400,70 @@ Responde solo con el resumen, sin introducciones."""
 
 # ==================== AUTH ROUTES ====================
 
-@api_router.post("/auth/session")
-async def exchange_session(request: Request, response: Response):
-    """Exchange session_id for session_token"""
-    body = await request.json()
-    session_id = body.get("session_id")
-    
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id requerido")
-    
-    # Exchange with Emergent Auth
-    async with httpx.AsyncClient() as client:
-        auth_response = await client.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id}
-        )
-    
-    if auth_response.status_code != 200:
-        raise HTTPException(status_code=401, detail="Sesión inválida")
-    
-    user_data = auth_response.json()
-    session_data = SessionDataResponse(**user_data)
+@api_router.post("/auth/register")
+async def register(user_data: UserRegister):
+    """Register a new user with email and password"""
+    # Check if email already exists
+    existing_user = await db.users.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email ya registrado")
     
     # Generate user_id
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     
-    # Check if user exists
-    existing_user = await db.users.find_one(
-        {"email": session_data.email},
-        {"_id": 0}
+    # Hash password
+    password_hashed = hash_password(user_data.password)
+    
+    # Determine role - check if this is the coach email
+    coach_email = os.environ.get('COACH_EMAIL', 'coach@mamarespira.com')
+    role = "coach" if user_data.email == coach_email else "user"
+    
+    # Create user
+    user = User(
+        user_id=user_id,
+        email=user_data.email,
+        name=user_data.name,
+        role=role,
+        password_hash=password_hashed
     )
     
-    if existing_user:
-        user_id = existing_user["user_id"]
-        role = existing_user.get("role", "user")
-    else:
-        # Determine role - check if this is the coach email
-        role = "coach" if session_data.email == COACH_EMAIL else "user"
-        
-        # Create new user
-        await db.users.insert_one({
-            "user_id": user_id,
-            "email": session_data.email,
-            "name": session_data.name,
-            "picture": session_data.picture,
-            "role": role,
-            "created_at": datetime.now(timezone.utc)
-        })
+    await db.users.insert_one(user.model_dump())
     
-    # Create session
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    await db.user_sessions.insert_one({
-        "user_id": user_id,
-        "session_token": session_data.session_token,
-        "expires_at": expires_at,
-        "created_at": datetime.now(timezone.utc)
-    })
+    # Create JWT token
+    access_token = create_access_token(user_id, user_data.email)
     
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_data.session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=7 * 24 * 60 * 60
-    )
-    
-    # Get full user data
-    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    # Return user without password hash
+    user_response = user.model_dump()
+    user_response.pop('password_hash', None)
     
     return {
-        "user": user_doc,
-        "session_token": session_data.session_token
+        "user": user_response,
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+@api_router.post("/auth/login")
+async def login(credentials: UserLogin):
+    """Login with email and password"""
+    # Find user
+    user_doc = await db.users.find_one({"email": credentials.email})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+    
+    # Verify password
+    if not verify_password(credentials.password, user_doc.get('password_hash', '')):
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+    
+    # Create JWT token
+    access_token = create_access_token(user_doc['user_id'], user_doc['email'])
+    
+    # Return user without password hash
+    user_response = {k: v for k, v in user_doc.items() if k not in ['_id', 'password_hash']}
+    
+    return {
+        "user": user_response,
+        "access_token": access_token,
+        "token_type": "bearer"
     }
 
 @api_router.get("/auth/me")
@@ -485,16 +472,11 @@ async def get_me(request: Request):
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="No autenticado")
-    return user.model_dump()
+    return user.model_dump(exclude={'password_hash'})
 
 @api_router.post("/auth/logout")
-async def logout(request: Request, response: Response):
-    """Logout user"""
-    session_token = await get_session_token(request)
-    if session_token:
-        await db.user_sessions.delete_one({"session_token": session_token})
-    
-    response.delete_cookie("session_token", path="/")
+async def logout(request: Request):
+    """Logout user (JWT is stateless, so this is mainly for client-side cleanup)"""
     return {"message": "Sesión cerrada"}
 
 @api_router.post("/auth/upgrade-premium")

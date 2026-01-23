@@ -1,0 +1,12 @@
+{
+  "name": "mamapanic-supabase",
+  "version": "1.0.0",
+  "description": "Supabase + Groq migration for MAMÁ RESPIRA",
+  "scripts": {
+    "setup": "echo 'Please follow SUPABASE_SETUP.md for complete setup instructions'"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "groq-sdk": "^0.3.2"
+  }
+}

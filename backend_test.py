@@ -294,27 +294,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-    git config --global user.name "Inova117"
-    git config --global user.email "117mgd@gmail.com"
-
-    root@agent-env-74e00a71-6422-4400-b5e0-6721e14ce2af:/app# /usr/local/bin/python
-Python 3.11.14 (main, Jan 13 2026, 03:20:38) [GCC 12.2.0] on linux
-Type "help", "copyright", "credits" or "license" for more information.
-Ctrl click to launch VS Code Native REPL
->>> ^M
->>>  git config --global user.name "Inova117"
-  File "<stdin>", line 1
-    git config --global user.name "Inova117"
-IndentationError: unexpected indent
->>>     git config --global user.email "117mgd@gmail.com"
-KeyboardInterrupt
->>> 
-
-root@agent-env-74e00a71-6422-4400-b5e0-6721e14ce2af:/app# 
-
-root@agent-env-74e00a71-6422-4400-b5e0-6721e14ce2af:/app#  git config --global user.name "Inova117"
-    git config --global user.email "117mgd@gmail.com"
-fatal: $HOME not set
-fatal: $HOME not set
-root@agent-env-74e00a71-6422-4400-b5e0-6721e14ce2af:/app# 
+ 
