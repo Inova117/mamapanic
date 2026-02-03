@@ -9,16 +9,19 @@ import {
   Switch,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
+import { uploadAvatar, updateProfilePicture } from '../../services/storage';
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, signIn, signOut, userRole } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('21:00');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const toggleNotifications = async (value: boolean) => {
     setNotificationsEnabled(value);
@@ -49,6 +52,26 @@ export default function ProfileScreen() {
         return { label: 'Premium', color: colors.accent.gold };
       default:
         return { label: 'Usuario', color: colors.text.muted };
+    }
+  };
+
+  const handleChangeAvatar = async () => {
+    if (!user?.id) return;
+
+    try {
+      setUploadingAvatar(true);
+      const newAvatarUrl = await uploadAvatar(user.id);
+
+      if (newAvatarUrl) {
+        await updateProfilePicture(user.id, newAvatarUrl);
+        Alert.alert('Éxito', 'Foto de perfil actualizada');
+        // Note: User context should refetch to update
+      }
+    } catch (error: any) {
+      console.error('Error updating avatar:', error);
+      Alert.alert('Error', error.message || 'No se pudo actualizar la foto');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -98,13 +121,28 @@ export default function ProfileScreen() {
 
         {/* User Card */}
         <View style={styles.userCard}>
-          {user?.picture ? (
-            <Image source={{ uri: user.picture }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person" size={40} color={colors.text.muted} />
-            </View>
-          )}
+          <TouchableOpacity
+            onPress={handleChangeAvatar}
+            disabled={uploadingAvatar}
+            style={styles.avatarContainer}
+          >
+            {user?.picture ? (
+              <Image source={{ uri: user.picture }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Ionicons name="person" size={40} color={colors.text.muted} />
+              </View>
+            )}
+            {uploadingAvatar ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color={colors.text.primary} />
+              </View>
+            ) : (
+              <View style={styles.cameraIcon}>
+                <Ionicons name="camera" size={20} color={colors.text.primary} />
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.userName}>{user?.name}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           <View style={[styles.roleBadge, { backgroundColor: roleBadge.color }]}>
@@ -256,6 +294,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: spacing.md,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.accent.sage,
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.background.card,
   },
   section: {
     paddingHorizontal: spacing.lg,

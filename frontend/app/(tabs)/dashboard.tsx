@@ -15,8 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -40,14 +41,25 @@ interface Bitacora {
   created_at: string;
 }
 
+interface RecentActivity {
+  id: string;
+  day_number: number;
+  created_at: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+}
+
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clientBitacoras, setClientBitacoras] = useState<Bitacora[]>([]);
   const [showClientModal, setShowClientModal] = useState(false);
   const [loadingBitacoras, setLoadingBitacoras] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
 
   const getAuthHeaders = async () => {
     const token = Platform.OS === 'web'
@@ -82,6 +94,63 @@ export default function DashboardScreen() {
     }
   };
 
+  const fetchRecentActivity = async () => {
+    setLoadingActivity(true);
+    try {
+      // Fetch recent bitacoras
+      const { data: bitacorasData, error: bitacorasError } = await supabase
+        .from('bitacoras')
+        .select('id, day_number, created_at, user_id')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (bitacorasError) throw bitacorasError;
+
+      if (!bitacorasData || bitacorasData.length === 0) {
+        setRecentActivity([]);
+        return;
+      }
+
+      // Get unique user IDs
+      const userIds = [...new Set(bitacorasData.map(b => b.user_id))];
+
+      // Fetch profiles for these users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, email, role')
+        .in('id', userIds)
+        .eq('role', 'user');
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user_id to profile
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.id, p])
+      );
+
+      // Combine bitacoras with profile data
+      const activities: RecentActivity[] = bitacorasData
+        .filter(b => profilesMap.has(b.user_id))
+        .map(b => {
+          const profile = profilesMap.get(b.user_id)!;
+          return {
+            id: b.id,
+            day_number: b.day_number,
+            created_at: b.created_at,
+            user_id: b.user_id,
+            user_name: profile.name || 'Usuario',
+            user_email: profile.email || '',
+          };
+        });
+
+      setRecentActivity(activities);
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+    } finally {
+      setLoadingActivity(false);
+    }
+  };
+
   const togglePremium = async (userId: string, currentRole: string) => {
     try {
       const headers = await getAuthHeaders();
@@ -100,6 +169,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (userRole === 'coach') {
       fetchClients();
+      fetchRecentActivity();
     }
   }, [userRole]);
 
@@ -134,14 +204,12 @@ export default function DashboardScreen() {
           <View style={styles.statCard}>
             <Ionicons name="people" size={24} color={colors.accent.sage} />
             <Text style={styles.statNumber}>{clients.length}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Text style={styles.statLabel}>Clientes</Text>
           </View>
           <View style={styles.statCard}>
-            <Ionicons name="star" size={24} color={colors.accent.gold} />
-            <Text style={styles.statNumber}>
-              {clients.filter(c => c.last_message).length}
-            </Text>
-            <Text style={styles.statLabel}>Activas</Text>
+            <Ionicons name="book" size={24} color={colors.accent.gold} />
+            <Text style={styles.statNumber}>{recentActivity.length}</Text>
+            <Text style={styles.statLabel}>Bitácoras</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="mail-unread" size={24} color={colors.accent.terracotta} />
@@ -150,6 +218,39 @@ export default function DashboardScreen() {
             </Text>
             <Text style={styles.statLabel}>Sin leer</Text>
           </View>
+        </View>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Actividad Reciente</Text>
+
+          {loadingActivity ? (
+            <ActivityIndicator color={colors.accent.sage} />
+          ) : recentActivity.length === 0 ? (
+            <View style={styles.emptyActivity}>
+              <Ionicons name="time-outline" size={32} color={colors.text.muted} />
+              <Text style={styles.emptyActivityText}>No hay actividad reciente</Text>
+            </View>
+          ) : (
+            recentActivity.map((activity) => (
+              <View key={activity.id} style={styles.activityCard}>
+                <View style={styles.activityIcon}>
+                  <Ionicons name="document-text" size={20} color={colors.accent.sage} />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityTitle}>
+                    {activity.user_name} registró el día #{activity.day_number}
+                  </Text>
+                  <Text style={styles.activityTime}>
+                    {formatDistanceToNow(new Date(activity.created_at), {
+                      addSuffix: true,
+                      locale: es
+                    })}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Clients List */}
@@ -338,6 +439,45 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text.muted,
     marginTop: spacing.md,
+  },
+  emptyActivity: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  emptyActivityText: {
+    fontSize: fontSize.sm,
+    color: colors.text.muted,
+    marginTop: spacing.sm,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.elevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  activityTime: {
+    fontSize: fontSize.xs,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
   clientCard: {
     flexDirection: 'row',

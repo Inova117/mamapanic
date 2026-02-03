@@ -10,21 +10,21 @@ interface ValidationCardProps {
   onContinue?: () => void;
 }
 
-export const ValidationCard: React.FC<ValidationCardProps> = ({ 
-  validation, 
+export const ValidationCard: React.FC<ValidationCardProps> = ({
+  validation,
   onNext,
-  onContinue 
+  onContinue
 }) => {
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
         <Ionicons name="heart" size={48} color={colors.accent.terracotta} />
       </View>
-      
+
       <Text style={styles.message}>{validation.message_es}</Text>
-      
+
       <View style={styles.buttonsContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.nextButton}
           onPress={onNext}
           activeOpacity={0.8}
@@ -32,8 +32,8 @@ export const ValidationCard: React.FC<ValidationCardProps> = ({
           <Ionicons name="refresh" size={24} color={colors.text.secondary} />
           <Text style={styles.nextButtonText}>Otra frase</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.continueButton}
           onPress={onContinue}
           activeOpacity={0.8}
@@ -65,39 +65,43 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   buttonsContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
+    flexDirection: 'column',
+    gap: spacing.sm,
     width: '100%',
   },
   nextButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.text.muted,
+    minHeight: 48,
   },
   nextButtonText: {
     fontSize: fontSize.sm,
     color: colors.text.secondary,
+    flexShrink: 1,
   },
   continueButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
     backgroundColor: colors.accent.sage,
     borderRadius: borderRadius.md,
+    minHeight: 48,
   },
   continueButtonText: {
     fontSize: fontSize.sm,
     color: colors.text.primary,
     fontWeight: '600',
+    flexShrink: 1,
   },
 });
 
