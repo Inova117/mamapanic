@@ -24,7 +24,7 @@ export const CommunityBar: React.FC = () => {
     };
 
     fetchPresence();
-    
+
     // Refresh every 2 minutes
     const interval = setInterval(fetchPresence, 120000);
     return () => clearInterval(interval);

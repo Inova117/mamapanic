@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     },
     backButtonText: {
         fontSize: 16,
-        color: colors.primary,
+        color: colors.accent.sage,
         fontFamily: fonts.medium,
     },
     titles: {
@@ -183,12 +183,12 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(0,0,0,0.1)',
     },
     button: {
-        backgroundColor: colors.primary,
+        backgroundColor: colors.accent.terracotta,
         borderRadius: 12,
         padding: spacing.md,
         alignItems: 'center',
         marginTop: spacing.lg,
-        shadowColor: colors.primary,
+        shadowColor: colors.accent.terracotta,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     linkText: {
-        color: colors.primary,
+        color: colors.accent.sage,
         fontFamily: fonts.bold,
         fontSize: 16,
     },

@@ -47,7 +47,7 @@ export default function AnalyticsScreen() {
                     </View>
 
                     <View style={styles.statCard}>
-                        <Ionicons name="moon" size={32} color={colors.accent.lavender} />
+                        <Ionicons name="moon" size={32} color={colors.accent.sageLight} />
                         <Text style={styles.statNumber}>{stats.avgSleepHours.toFixed(1)}h</Text>
                         <Text style={styles.statLabel}>Promedio Sueño</Text>
                     </View>

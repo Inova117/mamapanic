@@ -1,4 +1,4 @@
-import { supabase, CheckIn, ChatMessage, ValidationCard, Bitacora } from '../lib/supabase';
+import { supabase, CheckIn, ChatMessage, ValidationCard, Bitacora, Profile, DirectMessage } from '../lib/supabase';
 import { getChatResponse, getValidationResponse, getBitacoraSummary } from './groq';
 
 // ==================== VALIDATION CARDS ====================
@@ -278,5 +278,91 @@ export const getBitacoraById = async (id: string): Promise<Bitacora> => {
   if (error) throw error;
   return data;
 };
+
+/**
+ * Get the assigned coach or the first available coach
+ */
+export async function getCoach(): Promise<Profile | null> {
+  const { data: coach, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('role', 'coach')
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching coach:', error);
+    return null;
+  }
+
+  return coach;
+}
+
+/**
+ * Get direct messages between current user and coach
+ */
+export async function getDirectMessages(): Promise<DirectMessage[]> {
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('direct_messages')
+    .select('*')
+    .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching direct messages:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
+ * Send a direct message
+ */
+export async function sendDirectMessage(receiverId: string, content: string): Promise<DirectMessage | null> {
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('direct_messages')
+    .insert({
+      sender_id: user.id,
+      receiver_id: receiverId,
+      content,
+      read: false
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error sending direct message:', error);
+    return null;
+  }
+
+  return data;
+}
+
+/**
+ * Subscribe to new direct messages
+ */
+export function subscribeToDirectMessages(callback: (msg: DirectMessage) => void) {
+  return supabase
+    .channel('direct_messages')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'direct_messages',
+      },
+      (payload) => {
+        callback(payload.new as DirectMessage);
+      }
+    )
+    .subscribe();
+}
 
 export default supabase;

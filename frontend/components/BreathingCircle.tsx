@@ -27,9 +27,9 @@ const PHASE_COLORS = {
   exhale: colors.breathing.exhale,
 };
 
-export const BreathingCircle: React.FC<BreathingCircleProps> = ({ 
-  onComplete, 
-  cycles = 3 
+export const BreathingCircle: React.FC<BreathingCircleProps> = ({
+  onComplete,
+  cycles = 3
 }) => {
   const [phase, setPhase] = useState<BreathPhase>('inhale');
   const [cycle, setCycle] = useState(1);
@@ -38,8 +38,8 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    let countdownInterval: NodeJS.Timeout;
-    let phaseTimeout: NodeJS.Timeout;
+    let countdownInterval: ReturnType<typeof setInterval>;
+    let phaseTimeout: ReturnType<typeof setTimeout>;
 
     const runPhase = (currentPhase: BreathPhase) => {
       const duration = PHASE_DURATIONS[currentPhase];
@@ -87,7 +87,7 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({
       // Move to next phase
       phaseTimeout = setTimeout(() => {
         clearInterval(countdownInterval);
-        
+
         if (currentPhase === 'inhale') {
           setPhase('hold');
         } else if (currentPhase === 'hold') {
@@ -119,7 +119,7 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({
       <Text style={styles.cycleText}>
         Ciclo {cycle} de {cycles}
       </Text>
-      
+
       <View style={styles.circleContainer}>
         <Animated.View
           style={[
@@ -133,15 +133,15 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({
         >
           <Text style={styles.countdownText}>{countdown}</Text>
         </Animated.View>
-        
+
         {/* Outer ring */}
         <View style={[styles.outerRing, { borderColor: currentColor }]} />
       </View>
-      
+
       <Text style={[styles.phaseText, { color: currentColor }]}>
         {PHASE_LABELS[phase]}
       </Text>
-      
+
       <Text style={styles.instructionText}>
         {phase === 'inhale' && 'Respira profundamente por la nariz'}
         {phase === 'hold' && 'Mantén el aire en tus pulmones'}

@@ -126,15 +126,15 @@ export function addBreadcrumb(message: string, category: string, data?: Record<s
 }
 
 /**
- * Start a performance transaction
+ * Start a performance span (replaces deprecated startTransaction)
  */
-export function startTransaction(name: string, operation: string) {
-    if (!SENTRY_ENABLED) return null;
+export function startSpan(name: string, operation: string, callback: () => void | Promise<void>) {
+    if (!SENTRY_ENABLED) {
+        // Just run the callback if Sentry is disabled
+        return callback();
+    }
 
-    return Sentry.startTransaction({
-        name,
-        op: operation,
-    });
+    return Sentry.startSpan({ name, op: operation }, callback);
 }
 
 export default Sentry;

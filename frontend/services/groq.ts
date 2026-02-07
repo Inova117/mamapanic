@@ -69,13 +69,13 @@ export async function getChatResponse(
     }
 
     try {
-        const messages = [
+        const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
             { role: 'system', content: AI_SYSTEM_PROMPT },
             ...conversationHistory.map(msg => ({
                 role: msg.role as 'user' | 'assistant',
                 content: msg.content,
             })),
-            { role: 'user' as const, content: userMessage },
+            { role: 'user', content: userMessage },
         ];
 
         const completion = await groq.chat.completions.create({

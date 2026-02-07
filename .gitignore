@@ -78,3 +78,10 @@ agenthub/agents/youtube/db
 
 # Mobile development
 android-sdk/ 
+# Environment variables - CRITICAL
+.env
+*.env
+.env.local
+.env.*.local
+frontend/.env
+backend/.env

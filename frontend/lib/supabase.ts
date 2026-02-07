@@ -46,7 +46,7 @@ export type Profile = {
 export type ValidationCard = {
     id: string;
     message_es: string;
-    message_en: string | null;
+    message_en?: string;
     category: string;
     created_at: string;
 };
@@ -55,11 +55,11 @@ export type CheckIn = {
     id: string;
     user_id: string;
     mood: 1 | 2 | 3;
-    sleep_start: string | null;
-    sleep_end: string | null;
-    baby_wakeups: number | null;
-    brain_dump: string | null;
-    ai_response: string | null;
+    sleep_start?: string;
+    sleep_end?: string;
+    baby_wakeups?: number;
+    brain_dump?: string;
+    ai_response?: string;
     created_at: string;
 };
 
@@ -86,8 +86,10 @@ export type Bitacora = {
     user_id: string;
     day_number: number;
     date: string;
-    ai_summary: string | null;
+    ai_summary?: string;
+    morning_wake_time?: string;
+    number_of_wakings?: number;
+    baby_mood?: string;
     created_at: string;
     updated_at: string;
-    // Add other fields as needed
 };

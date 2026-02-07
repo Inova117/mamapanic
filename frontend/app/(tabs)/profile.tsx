@@ -92,7 +92,7 @@ export default function ProfileScreen() {
             Inicia sesión para guardar tu progreso, comunicarte con tu coach y recibir recordatorios.
           </Text>
 
-          <TouchableOpacity style={styles.googleButton} onPress={signIn}>
+          <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Login', 'Por favor usa la pantalla de login')}>
             <Ionicons name="logo-google" size={24} color={colors.text.primary} />
             <Text style={styles.googleButtonText}>Continuar con Google</Text>
           </TouchableOpacity>
@@ -101,7 +101,7 @@ export default function ProfileScreen() {
             Al iniciar sesión, aceptas nuestros términos de servicio y política de privacidad.
           </Text>
         </ScrollView>
-      </SafeAreaView>
+      </SafeAreaView >
     );
   }
 
@@ -126,8 +126,8 @@ export default function ProfileScreen() {
             disabled={uploadingAvatar}
             style={styles.avatarContainer}
           >
-            {user?.picture ? (
-              <Image source={{ uri: user.picture }} style={styles.avatar} />
+            {user?.user_metadata?.picture ? (
+              <Image source={{ uri: user.user_metadata.picture }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Ionicons name="person" size={40} color={colors.text.muted} />
@@ -143,7 +143,7 @@ export default function ProfileScreen() {
               </View>
             )}
           </TouchableOpacity>
-          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userName}>{user?.user_metadata?.name || user?.email}</Text>
           <Text style={styles.userEmail}>{user?.email}</Text>
           <View style={[styles.roleBadge, { backgroundColor: roleBadge.color }]}>
             <Text style={styles.roleText}>{roleBadge.label}</Text>
