@@ -321,8 +321,12 @@ export async function getCoach(): Promise<Profile | null> {
  * Get direct messages between current user and coach
  */
 export async function getDirectMessages(): Promise<DirectMessage[]> {
-  const user = (await supabase.auth.getUser()).data.user;
-  if (!user) return [];
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) {
+    DebugLogger.warn('[DM] getDirectMessages: no session');
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('direct_messages')
@@ -331,10 +335,11 @@ export async function getDirectMessages(): Promise<DirectMessage[]> {
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.error('Error fetching direct messages:', error);
+    DebugLogger.error('[DM] getDirectMessages error:', error.message);
     return [];
   }
 
+  DebugLogger.info('[DM] Loaded messages:', data?.length ?? 0);
   return data || [];
 }
 

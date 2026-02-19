@@ -57,40 +57,45 @@ export default function MessagesScreen() {
   useEffect(() => {
     if (!hasAccess) return;
 
-    // Subscribe to real-time messages
+    // Subscribe to real-time messages via WebSocket
     const subscription = subscribeToDirectMessages((newMessage) => {
-      // Optimistically add message if it's not already in the list
       setMessages((prev) => {
         const exists = prev.some(m => m.id === newMessage.id);
         if (exists) return prev;
         return [...prev, newMessage];
       });
-
-      // Scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
+
+    // Polling fallback every 5s (WebSocket unreliable on mobile PWA)
+    const pollInterval = setInterval(async () => {
+      const fresh = await getDirectMessages();
+      setMessages(prev => {
+        // Only update if new messages arrived
+        if (fresh.length !== prev.length) {
+          DebugLogger.info('[Coach] Polling: found new messages', fresh.length, 'vs', prev.length);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+          return fresh;
+        }
+        return prev;
+      });
+    }, 5000);
 
     return () => {
       subscription.unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [hasAccess]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      // 1. Find the coach
       const coachProfile = await getCoach();
       setCoach(coachProfile);
-
-      // 2. Load message history
       const history = await getDirectMessages();
       setMessages(history);
-
     } catch (error) {
-      console.error('Error loading chat:', error);
-      Alert.alert('Error', 'No se pudieron cargar los mensajes');
+      DebugLogger.error('[Coach] loadData error:', String(error));
     } finally {
       setLoading(false);
     }
