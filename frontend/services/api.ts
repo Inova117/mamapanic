@@ -99,29 +99,34 @@ export const sendChatMessage = async (
   content: string
 ): Promise<ChatMessage> => {
   // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  console.log('[Chat] auth.getUser result:', user?.id ?? 'null', userError?.message ?? 'ok');
   if (!user) throw new Error('Not authenticated');
 
-  // Save user message
-  await supabase.from('chat_messages').insert([{
+  // Save user message (non-blocking: ignore insert errors)
+  const { error: userInsertError } = await supabase.from('chat_messages').insert([{
     session_id: sessionId,
     user_id: user.id,
     role: 'user',
     content,
   }]);
+  if (userInsertError) console.warn('[Chat] User message insert failed:', userInsertError.message);
 
   // Get conversation history
-  const { data: history } = await supabase
+  const { data: history, error: historyError } = await supabase
     .from('chat_messages')
     .select('role, content')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
     .limit(10);
+  if (historyError) console.warn('[Chat] History fetch failed:', historyError.message);
 
   // Get AI response
+  console.log('[Chat] Calling Groq getChatResponse...');
   const aiResponse = await getChatResponse(content, history || []);
+  console.log('[Chat] Groq response received, length:', aiResponse.length);
 
-  // Save assistant message
+  // Save assistant message and return it
   const { data, error } = await supabase
     .from('chat_messages')
     .insert([{
@@ -133,9 +138,22 @@ export const sendChatMessage = async (
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // If DB save fails, still return the AI response as a local message
+    console.error('[Chat] Assistant message insert failed:', error.message, error.code);
+    return {
+      id: `local_${Date.now()}`,
+      session_id: sessionId,
+      user_id: user.id,
+      role: 'assistant',
+      content: aiResponse,
+      created_at: new Date().toISOString(),
+    } as ChatMessage;
+  }
+
   return data;
 };
+
 
 export const getChatHistory = async (
   sessionId: string,
