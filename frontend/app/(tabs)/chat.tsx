@@ -8,7 +8,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { sendChatMessage, getChatHistory } from '../../services/api';
 import { ChatMessage } from '../../types';
 import { RateLimiter } from '../../utils/rateLimiter';
 import { InputValidator } from '../../utils/validator';
+import { DebugLogger, LogEntry } from '../../utils/debugLogger';
 
 export default function ChatScreen() {
   const { chatSessionId } = useAppStore();
@@ -25,10 +27,17 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
+  const debugScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     loadChatHistory();
+    // Subscribe to debug logs
+    const unsub = DebugLogger.subscribe(logs => setDebugLogs([...logs]));
+    setDebugLogs(DebugLogger.getLogs());
+    return unsub;
   }, [chatSessionId]);
 
   const loadChatHistory = async () => {
@@ -46,7 +55,7 @@ export default function ChatScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    // ✅ RATE LIMITING: Verificar límite de mensajes de chat
+    // ✅ RATE LIMITING
     const canSend = await RateLimiter.canSendChatMessage();
     if (!canSend) {
       alert(RateLimiter.getRateLimitMessage('send_chat_message'));
@@ -80,7 +89,7 @@ export default function ChatScreen() {
       const response = await sendChatMessage(chatSessionId, userMessage.content);
       setMessages((prev) => [...prev, response]);
     } catch (error) {
-      console.error('Error sending message:', error);
+      DebugLogger.error('[ChatScreen] handleSend catch:', String(error));
       const errorMessage: ChatMessage = {
         id: `error_${Date.now()}`,
         session_id: chatSessionId,
@@ -123,6 +132,12 @@ export default function ChatScreen() {
     );
   };
 
+  const logColor = (level: string) => {
+    if (level === 'error') return '#ff6b6b';
+    if (level === 'warn') return '#ffd93d';
+    return '#a8e6cf';
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -134,6 +149,13 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Abuela Sabia</Text>
           <Text style={styles.headerSubtitle}>Aquí para escucharte</Text>
         </View>
+        {/* 🐛 Debug button */}
+        <TouchableOpacity
+          style={styles.debugButton}
+          onPress={() => setShowDebug(true)}
+        >
+          <Text style={styles.debugButtonText}>🐛</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Messages */}
@@ -221,6 +243,46 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* 🐛 Debug Log Modal */}
+      <Modal
+        visible={showDebug}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowDebug(false)}
+      >
+        <SafeAreaView style={styles.debugModal}>
+          <View style={styles.debugHeader}>
+            <Text style={styles.debugTitle}>🐛 Debug Logs</Text>
+            <View style={styles.debugActions}>
+              <TouchableOpacity onPress={() => DebugLogger.clear()} style={styles.debugClearBtn}>
+                <Text style={styles.debugClearText}>Limpiar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDebug(false)} style={styles.debugCloseBtn}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <ScrollView
+            ref={debugScrollRef}
+            style={styles.debugScroll}
+            contentContainerStyle={{ padding: spacing.sm }}
+          >
+            {debugLogs.length === 0 ? (
+              <Text style={styles.debugEmpty}>Sin logs todavía. Envía un mensaje.</Text>
+            ) : (
+              debugLogs.map(log => (
+                <View key={log.id} style={styles.logEntry}>
+                  <Text style={[styles.logLevel, { color: logColor(log.level) }]}>
+                    [{log.timestamp}] {log.level.toUpperCase()}
+                  </Text>
+                  <Text style={styles.logMessage}>{log.message}</Text>
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -252,6 +314,17 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: fontSize.sm,
     color: colors.text.secondary,
+  },
+  debugButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  debugButtonText: {
+    fontSize: 18,
   },
   messagesContainer: {
     flex: 1,
@@ -356,7 +429,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    paddingBottom: Platform.OS === 'android' ? 110 : 90, // Enough space above tab bar
+    paddingBottom: Platform.OS === 'android' ? 110 : 90,
     borderTopWidth: 1,
     borderTopColor: colors.background.card,
     gap: spacing.sm,
@@ -381,5 +454,66 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: colors.background.elevated,
+  },
+  // Debug modal styles
+  debugModal: {
+    flex: 1,
+    backgroundColor: '#0d0d0d',
+  },
+  debugHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  debugTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  debugActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  debugClearBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: '#333',
+    borderRadius: 6,
+  },
+  debugClearText: {
+    color: '#aaa',
+    fontSize: fontSize.sm,
+  },
+  debugCloseBtn: {
+    padding: 4,
+  },
+  debugScroll: {
+    flex: 1,
+  },
+  debugEmpty: {
+    color: '#555',
+    textAlign: 'center',
+    marginTop: spacing.xl,
+    fontSize: fontSize.sm,
+  },
+  logEntry: {
+    marginBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1a1a1a',
+    paddingBottom: spacing.xs,
+  },
+  logLevel: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginBottom: 2,
+  },
+  logMessage: {
+    fontSize: 12,
+    color: '#ddd',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

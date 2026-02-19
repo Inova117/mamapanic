@@ -2,10 +2,11 @@
 // Groq AI service — uses plain fetch so it works on iOS, Android, AND web PWA.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { DebugLogger } from '../utils/debugLogger';
+
 const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
 
-// 🔍 Diagnóstico — verificar si la key llegó al bundle
-console.log('[Groq] Key present:', groqApiKey ? `YES (${groqApiKey.substring(0, 8)}...)` : 'NO ❌');
+DebugLogger.info('[Groq] Key present:', groqApiKey ? `YES (${groqApiKey.substring(0, 8)}...)` : 'NO ❌');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
@@ -47,11 +48,11 @@ type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 /** Universal Groq fetch — works on iOS, Android, and web PWA */
 async function groqFetch(messages: Message[], maxTokens = 500): Promise<string> {
     if (!groqApiKey) {
-        console.warn('[Groq] No API key — returning fallback');
+        DebugLogger.warn('[Groq] No API key — returning fallback');
         return FALLBACK_MESSAGE;
     }
 
-    console.log('[Groq] Starting fetch request, messages count:', messages.length);
+    DebugLogger.info('[Groq] Starting fetch, msgs:', messages.length);
 
     const resp = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -68,16 +69,18 @@ async function groqFetch(messages: Message[], maxTokens = 500): Promise<string> 
         }),
     });
 
-    console.log('[Groq] Response status:', resp.status);
+    DebugLogger.info('[Groq] Response status:', resp.status);
 
     if (!resp.ok) {
         const errorText = await resp.text();
-        throw new Error(`Groq API ${resp.status}: ${errorText.substring(0, 200)}`);
+        const msg = `Groq API ${resp.status}: ${errorText.substring(0, 200)}`;
+        DebugLogger.error('[Groq] Error:', msg);
+        throw new Error(msg);
     }
 
     const data = await resp.json();
     const content = data.choices?.[0]?.message?.content;
-    console.log('[Groq] Got response, length:', content?.length ?? 0);
+    DebugLogger.info('[Groq] Response length:', content?.length ?? 0);
     return content || FALLBACK_MESSAGE;
 }
 
@@ -102,7 +105,7 @@ export async function getChatResponse(
 
         return await groqFetch(messages, 500);
     } catch (error) {
-        console.error('[Groq] getChatResponse error:', error);
+        DebugLogger.error('[Groq] getChatResponse error:', String(error));
         return FALLBACK_MESSAGE;
     }
 }
