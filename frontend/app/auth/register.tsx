@@ -4,6 +4,7 @@ import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors, fonts, spacing } from '../../theme/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { InputValidator } from '../../utils/validator';
 
 export default function RegisterScreen() {
     const [name, setName] = useState('');
@@ -14,22 +15,29 @@ export default function RegisterScreen() {
     const router = useRouter();
 
     const handleRegister = async () => {
-        if (!name || !email || !password) {
-            Alert.alert('Error', 'Por favor completa todos los campos');
+        // ✅ INPUT VALIDATION
+        const nameCheck = InputValidator.validateName(name);
+        if (!nameCheck.valid) {
+            Alert.alert('Error', nameCheck.error);
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+        const emailCheck = InputValidator.validateEmail(email);
+        if (!emailCheck.valid) {
+            Alert.alert('Error', emailCheck.error);
+            return;
+        }
+
+        const passwordCheck = InputValidator.validatePassword(password);
+        if (!passwordCheck.valid) {
+            Alert.alert('Contraseña débil', passwordCheck.error);
             return;
         }
 
         try {
             setLoading(true);
-            await signUp(email, password, name);
+            await signUp(emailCheck.sanitized!, password, nameCheck.sanitized!);
             Alert.alert('Éxito', 'Cuenta creada. Por favor verifica tu email o inicia sesión.');
-            // Depending on Supabase settings, email confirmation might be required
-            // If auto-confirm is on, AuthContext will handle navigation
         } catch (error: any) {
             console.error(error);
             Alert.alert('Error de Registro', error.message || 'Ocurrió un error al crear la cuenta');

@@ -25,6 +25,9 @@ import {
 import { Profile, DirectMessage } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { RateLimiter } from '../../utils/rateLimiter';
+import { InputValidator } from '../../utils/validator';
+import { AuditLogger } from '../../utils/auditLogger';
 
 export default function MessagesScreen() {
   const { user, userRole } = useAuth();
@@ -92,25 +95,42 @@ export default function MessagesScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || !coach) return;
 
-    const content = inputText.trim();
-    setInputText(''); // Clear input immediately
+    // ✅ RATE LIMITING
+    const canSend = await RateLimiter.canSendMessage();
+    if (!canSend) {
+      AuditLogger.logRateLimitHit('send_message');
+      Alert.alert(
+        'Límite alcanzado',
+        RateLimiter.getRateLimitMessage('send_message'),
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // ✅ INPUT VALIDATION
+    const validation = InputValidator.validateMessage(inputText);
+    if (!validation.valid) {
+      Alert.alert('Mensaje inválido', validation.error);
+      return;
+    }
+
+    const content = validation.sanitized!;
+    setInputText('');
     setSending(true);
 
     try {
-      // Optimistic update
-      // We don't add it to state here because the subscription will catch it
-      // Or we could add it with a temp ID
-
       const sentMessage = await sendDirectMessage(coach.id, content);
 
-      if (!sentMessage) {
+      if (sentMessage) {
+        AuditLogger.logMessageSent(sentMessage.id, coach.id);
+      } else {
         Alert.alert('Error', 'No se pudo enviar el mensaje');
-        setInputText(content); // Restore input
+        setInputText(content);
       }
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'No se pudo enviar el mensaje');
-      setInputText(content); // Restore input
+      setInputText(content);
     } finally {
       setSending(false);
     }

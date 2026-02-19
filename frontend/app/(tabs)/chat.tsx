@@ -16,6 +16,8 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAppStore } from '../../store/useAppStore';
 import { sendChatMessage, getChatHistory } from '../../services/api';
 import { ChatMessage } from '../../types';
+import { RateLimiter } from '../../utils/rateLimiter';
+import { InputValidator } from '../../utils/validator';
 
 export default function ChatScreen() {
   const { chatSessionId } = useAppStore();
@@ -44,11 +46,25 @@ export default function ChatScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
+    // ✅ RATE LIMITING: Verificar límite de mensajes de chat
+    const canSend = await RateLimiter.canSendChatMessage();
+    if (!canSend) {
+      alert(RateLimiter.getRateLimitMessage('send_chat_message'));
+      return;
+    }
+
+    // ✅ INPUT VALIDATION
+    const validation = InputValidator.validateMessage(inputText);
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: `temp_${Date.now()}`,
       session_id: chatSessionId,
       role: 'user',
-      content: inputText.trim(),
+      content: validation.sanitized!,
       created_at: new Date().toISOString(),
     };
 

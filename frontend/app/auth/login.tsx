@@ -4,6 +4,8 @@ import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { colors, fonts, spacing } from '../../theme/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { InputValidator } from '../../utils/validator';
+import { AuditLogger } from '../../utils/auditLogger';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -13,17 +15,24 @@ export default function LoginScreen() {
     const router = useRouter();
 
     const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Por favor ingresa email y contraseña');
+        // ✅ INPUT VALIDATION
+        const emailCheck = InputValidator.validateEmail(email);
+        if (!emailCheck.valid) {
+            Alert.alert('Error', emailCheck.error);
+            return;
+        }
+        if (!password) {
+            Alert.alert('Error', 'Por favor ingresa tu contraseña');
             return;
         }
 
         try {
             setLoading(true);
-            await signIn(email, password);
-            // Navigation is handled by AuthContext
+            await signIn(emailCheck.sanitized!, password);
+            AuditLogger.logSessionStarted();
         } catch (error: any) {
             console.error(error);
+            AuditLogger.logSuspiciousActivity('login_failed', { email: emailCheck.sanitized });
             Alert.alert('Error de Login', error.message || 'Ocurrió un error al iniciar sesión');
         } finally {
             setLoading(false);
