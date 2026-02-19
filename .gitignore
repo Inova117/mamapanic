@@ -85,3 +85,4 @@ android-sdk/
 .env.*.local
 frontend/.env
 backend/.env
+# Distribución web\ndist/\n.vercel/
