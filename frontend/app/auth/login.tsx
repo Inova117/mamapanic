@@ -83,10 +83,11 @@ export default function LoginScreen() {
 
                         <TouchableOpacity
                             style={styles.forgotPassword}
-                            onPress={() => Alert.alert('Próximamente', 'Función de recuperar contraseña en construcción')}
+                            onPress={() => router.push('/auth/forgot-password' as any)}
                         >
                             <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
                         </TouchableOpacity>
+
 
                         <TouchableOpacity
                             style={[styles.button, loading && styles.buttonDisabled]}
