@@ -1,7 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Groq AI service — uses plain fetch so it works on iOS, Android, AND web PWA.
-// The groq-sdk uses Node.js internals that break in Expo web; fetch works
-// everywhere without any platform-specific code.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
@@ -9,43 +7,11 @@ const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
 // 🔍 Diagnóstico — verificar si la key llegó al bundle
 console.log('[Groq] Key present:', groqApiKey ? `YES (${groqApiKey.substring(0, 8)}...)` : 'NO ❌');
 
-if (!groqApiKey) {
-    console.warn('Groq API key not configured. AI features will use fallback messages.');
-}
-
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-type Message = { role: 'system' | 'user' | 'assistant'; content: string };
-
-/** Universal Groq fetch helper — iOS, Android, and web PWA */
-async function groqFetch(messages: Message[], maxTokens = 500): Promise<string> {
-    if (!groqApiKey) {
-        return FALLBACK_MESSAGE;
-    }
-
-    const resp = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${groqApiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: GROQ_MODEL,
-            messages,
-            temperature: 0.7,
-            max_tokens: maxTokens,
-            top_p: 1,
-        }),
-    });
-
-    if (!resp.ok) {
-        throw new Error(`Groq API error: ${resp.status}`);
-    }
-
-    const data = await resp.json();
-    return data.choices?.[0]?.message?.content || FALLBACK_MESSAGE;
-}
+// ⚠️ IMPORTANT: define FALLBACK_MESSAGE BEFORE groqFetch uses it
+const FALLBACK_MESSAGE = 'Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛';
 
 // ─── Persona ──────────────────────────────────────────────────────────────────
 
@@ -69,13 +35,51 @@ Reglas ESTRICTAS:
 8. Si te preguntan por tu nombre, di que eres Abuela Sabia.
 9. Si te preguntan por tu edad, di que tienes 60 años.
 10. Si te preguntan información que solo un doctor puede responder, di que no puedes responder y que debe consultar a su doctor.
-11. Tienes prohibido dar información que tenga que ver con salud, medicina, o cualquier tema que pueda poner en riesgo la salud de la mamá o del bebé.
 
 Recuerda: Tu objetivo es que la mamá pase de pánico a calma en menos de 30 segundos.`;
 
-// ─── Fallback ─────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const FALLBACK_MESSAGE = 'Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛';
+type Message = { role: 'system' | 'user' | 'assistant'; content: string };
+
+// ─── Core fetch helper ────────────────────────────────────────────────────────
+
+/** Universal Groq fetch — works on iOS, Android, and web PWA */
+async function groqFetch(messages: Message[], maxTokens = 500): Promise<string> {
+    if (!groqApiKey) {
+        console.warn('[Groq] No API key — returning fallback');
+        return FALLBACK_MESSAGE;
+    }
+
+    console.log('[Groq] Starting fetch request, messages count:', messages.length);
+
+    const resp = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${groqApiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: GROQ_MODEL,
+            messages,
+            temperature: 0.7,
+            max_tokens: maxTokens,
+            top_p: 1,
+        }),
+    });
+
+    console.log('[Groq] Response status:', resp.status);
+
+    if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(`Groq API ${resp.status}: ${errorText.substring(0, 200)}`);
+    }
+
+    const data = await resp.json();
+    const content = data.choices?.[0]?.message?.content;
+    console.log('[Groq] Got response, length:', content?.length ?? 0);
+    return content || FALLBACK_MESSAGE;
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -98,7 +102,7 @@ export async function getChatResponse(
 
         return await groqFetch(messages, 500);
     } catch (error) {
-        console.error('Groq API error:', error);
+        console.error('[Groq] getChatResponse error:', error);
         return FALLBACK_MESSAGE;
     }
 }
@@ -128,7 +132,7 @@ export async function getValidationResponse(
             { role: 'user', content: message },
         ], 200);
     } catch (error) {
-        console.error('Groq API error:', error);
+        console.error('[Groq] getValidationResponse error:', error);
         return 'Gracias por compartir. Recuerda: cada día que pasas con tu bebé es un día de amor. 💛';
     }
 }
@@ -161,7 +165,7 @@ export async function getBitacoraSummary(bitacora: any): Promise<string> {
             { role: 'user', content: prompt },
         ], 300);
     } catch (error) {
-        console.error('Groq API error:', error);
+        console.error('[Groq] getBitacoraSummary error:', error);
         return 'Registro guardado exitosamente.';
     }
 }
