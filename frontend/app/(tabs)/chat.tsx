@@ -17,9 +17,9 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAppStore } from '../../store/useAppStore';
 import { sendChatMessage, getChatHistory } from '../../services/api';
 import { ChatMessage } from '../../types';
-import { RateLimiter } from '../../utils/rateLimiter';
 import { InputValidator } from '../../utils/validator';
 import { DebugLogger, LogEntry } from '../../utils/debugLogger';
+// Note: Rate limiting removed from chat to avoid Android AbortError from network calls
 
 export default function ChatScreen() {
   const { chatSessionId } = useAppStore();
@@ -55,12 +55,7 @@ export default function ChatScreen() {
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
 
-    // ✅ RATE LIMITING
-    const canSend = await RateLimiter.canSendChatMessage();
-    if (!canSend) {
-      alert(RateLimiter.getRateLimitMessage('send_chat_message'));
-      return;
-    }
+    DebugLogger.info('[ChatScreen] handleSend: starting');
 
     // ✅ INPUT VALIDATION
     const validation = InputValidator.validateMessage(inputText);

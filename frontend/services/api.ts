@@ -99,10 +99,12 @@ export const sendChatMessage = async (
   sessionId: string,
   content: string
 ): Promise<ChatMessage> => {
-  // Get current user
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  DebugLogger.info('[Chat] auth.getUser:', user?.id?.substring(0, 8) ?? 'null', userError?.message ?? 'ok');
+  // Use getSession() — reads localStorage, NO network call, never gets aborted by Android keyboard
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  DebugLogger.info('[Chat] getSession:', user?.id?.substring(0, 8) ?? 'no session');
   if (!user) throw new Error('Not authenticated');
+
 
   // Save user message (non-blocking: ignore insert errors)
   const { error: userInsertError } = await supabase.from('chat_messages').insert([{
