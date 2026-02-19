@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing } from '../../theme/theme';
@@ -9,49 +9,43 @@ import CommunityBar from '../../components/CommunityBar';
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="heart" size={32} color={colors.accent.terracotta} />
-            <Text style={styles.logoText}>MAMÁ RESPIRA</Text>
-          </View>
-          <Text style={styles.subtitle}>Estás haciendo un gran trabajo</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Ionicons name="heart" size={32} color={colors.accent.terracotta} />
+          <Text style={styles.logoText}>MAMÁ RESPIRA</Text>
         </View>
+        <Text style={styles.subtitle}>Estás haciendo un gran trabajo</Text>
+      </View>
 
-        {/* Community Bar */}
-        <View style={styles.communityContainer}>
-          <CommunityBar />
+      {/* Community Bar */}
+      <View style={styles.communityContainer}>
+        <CommunityBar />
+      </View>
+
+      {/* Main Content — fills remaining space */}
+      <View style={styles.mainContent}>
+        <Text style={styles.promptText}>
+          ¿Cómo te sientes ahora mismo?
+        </Text>
+        <Text style={styles.promptSubtext}>
+          Si te sientes abrumada, toca el botón de abajo
+        </Text>
+      </View>
+
+      {/* Quick Tips */}
+      <View style={styles.tipsContainer}>
+        <View style={styles.tipCard}>
+          <Ionicons name="moon" size={24} color={colors.accent.sage} />
+          <Text style={styles.tipText}>Las noches difíciles terminan</Text>
         </View>
-
-        {/* Main Content */}
-        <View style={styles.mainContent}>
-          <Text style={styles.promptText}>
-            ¿Cómo te sientes ahora mismo?
-          </Text>
-          <Text style={styles.promptSubtext}>
-            Si te sientes abrumada, toca el botón de abajo
-          </Text>
+        <View style={styles.tipCard}>
+          <Ionicons name="water" size={24} color={colors.accent.gold} />
+          <Text style={styles.tipText}>¿Ya bebiste agua hoy?</Text>
         </View>
+      </View>
 
-        {/* Quick Tips */}
-        <View style={styles.tipsContainer}>
-          <View style={styles.tipCard}>
-            <Ionicons name="moon" size={24} color={colors.accent.sage} />
-            <Text style={styles.tipText}>Las noches difíciles terminan</Text>
-          </View>
-          <View style={styles.tipCard}>
-            <Ionicons name="water" size={24} color={colors.accent.gold} />
-            <Text style={styles.tipText}>¿Ya bebiste agua hoy?</Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Crisis Mode Button - Fixed at bottom (Thumb Zone) */}
+      {/* Crisis Mode Button — pinned at bottom, inside safe area */}
       <View style={styles.panicContainer}>
         <CrisisModeScreen />
       </View>
@@ -63,12 +57,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100, // Space for tab bar
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -96,9 +84,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   mainContent: {
+    flex: 1,                  // ← takes all remaining space, no more squished layout
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
     alignItems: 'center',
+    justifyContent: 'center', // ← vertically centered in that space
   },
   promptText: {
     fontSize: fontSize.xxl,
@@ -116,6 +105,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
+    marginBottom: spacing.lg,
   },
   tipCard: {
     flex: 1,
@@ -131,6 +121,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   panicContainer: {
-    paddingBottom: 130, // Increased for better visibility above tab bar
+    paddingBottom: spacing.md,  // ← just a small breathing room, no more 130px
+    paddingHorizontal: spacing.lg,
   },
 });
