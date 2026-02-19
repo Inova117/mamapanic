@@ -28,6 +28,8 @@ import { es } from 'date-fns/locale';
 import { RateLimiter } from '../../utils/rateLimiter';
 import { InputValidator } from '../../utils/validator';
 import { AuditLogger } from '../../utils/auditLogger';
+import { DebugLogger, LogEntry } from '../../utils/debugLogger';
+import { Modal, ScrollView } from 'react-native';
 
 export default function MessagesScreen() {
   const { user, userRole } = useAuth();
@@ -36,6 +38,8 @@ export default function MessagesScreen() {
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
   // Check if user has access (Premium or Coach)
@@ -43,11 +47,11 @@ export default function MessagesScreen() {
   const hasAccess = userRole === 'premium' || userRole === 'coach';
 
   useEffect(() => {
-    if (!hasAccess) {
-      setLoading(false);
-      return;
-    }
+    const unsub = DebugLogger.subscribe(logs => setDebugLogs([...logs]));
+    setDebugLogs(DebugLogger.getLogs());
+    if (!hasAccess) { setLoading(false); return; }
     loadData();
+    return unsub;
   }, [hasAccess]);
 
   useEffect(() => {
@@ -192,6 +196,10 @@ export default function MessagesScreen() {
             <Text style={styles.statusText}>En línea</Text>
           </View>
         </View>
+        {/* 🐛 Debug button */}
+        <TouchableOpacity style={styles.debugButton} onPress={() => setShowDebug(true)}>
+          <Text style={{ fontSize: 18 }}>🐛</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Messages List */}
@@ -250,6 +258,35 @@ export default function MessagesScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* 🐛 Debug Log Modal */}
+      <Modal visible={showDebug} animationType="slide" transparent={false} onRequestClose={() => setShowDebug(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#222' }}>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>🐛 Debug Logs</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity onPress={() => DebugLogger.clear()} style={{ padding: 6, backgroundColor: '#333', borderRadius: 6 }}>
+                <Text style={{ color: '#aaa', fontSize: 13 }}>Limpiar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowDebug(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 12 }}>
+            {debugLogs.length === 0 ? (
+              <Text style={{ color: '#555', textAlign: 'center', marginTop: 40 }}>Sin logs. Envía un mensaje.</Text>
+            ) : debugLogs.map(log => (
+              <View key={log.id} style={{ marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a1a', paddingBottom: 6 }}>
+                <Text style={{ fontSize: 10, color: log.level === 'error' ? '#ff6b6b' : log.level === 'warn' ? '#ffd93d' : '#a8e6cf', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                  [{log.timestamp}] {log.level.toUpperCase()}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#ddd', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>{log.message}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -342,6 +379,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
+    paddingBottom: Platform.OS === 'android' ? 85 : 90,
     borderTopWidth: 1,
     borderTopColor: colors.background.card,
     backgroundColor: colors.background.primary,
@@ -404,5 +442,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text.secondary,
     textAlign: 'center',
-  }
+  },
+  debugButton: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: colors.background.card,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });
