@@ -23,7 +23,17 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Mam\u00e1 Respira",
+      "shortName": "Mam\u00e1 Respira",
+      "description": "Tu santuario de calma en el posparto",
+      "themeColor": "#1a1a2e",
+      "backgroundColor": "#000000",
+      "lang": "es",
+      "scope": "/",
+      "startUrl": "/",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",
