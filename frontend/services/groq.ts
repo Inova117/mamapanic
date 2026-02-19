@@ -6,6 +6,9 @@
 
 const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
 
+// 🔍 Diagnóstico — verificar si la key llegó al bundle
+console.log('[Groq] Key present:', groqApiKey ? `YES (${groqApiKey.substring(0, 8)}...)` : 'NO ❌');
+
 if (!groqApiKey) {
     console.warn('Groq API key not configured. AI features will use fallback messages.');
 }
