@@ -97,19 +97,12 @@ export default function MessagesScreen() {
   };
 
   const handleSend = async () => {
-    if (!inputText.trim() || !coach) return;
-
-    // ✅ RATE LIMITING
-    const canSend = await RateLimiter.canSendMessage();
-    if (!canSend) {
-      AuditLogger.logRateLimitHit('send_message');
-      Alert.alert(
-        'Límite alcanzado',
-        RateLimiter.getRateLimitMessage('send_message'),
-        [{ text: 'OK' }]
-      );
+    if (!inputText.trim() || !coach) {
+      DebugLogger.warn('[Coach] handleSend blocked — no input or no coach:', !inputText.trim(), !coach);
       return;
     }
+
+    DebugLogger.info('[Coach] handleSend starting, coach:', coach.id.substring(0, 8));
 
     // ✅ INPUT VALIDATION
     const validation = InputValidator.validateMessage(inputText);
@@ -126,13 +119,15 @@ export default function MessagesScreen() {
       const sentMessage = await sendDirectMessage(coach.id, content);
 
       if (sentMessage) {
+        DebugLogger.info('[Coach] Message sent, id:', sentMessage.id.substring(0, 8));
         AuditLogger.logMessageSent(sentMessage.id, coach.id);
       } else {
+        DebugLogger.error('[Coach] sendDirectMessage returned null');
         Alert.alert('Error', 'No se pudo enviar el mensaje');
         setInputText(content);
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      DebugLogger.error('[Coach] handleSend catch:', String(error));
       Alert.alert('Error', 'No se pudo enviar el mensaje');
       setInputText(content);
     } finally {

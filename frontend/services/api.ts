@@ -342,8 +342,13 @@ export async function getDirectMessages(): Promise<DirectMessage[]> {
  * Send a direct message
  */
 export async function sendDirectMessage(receiverId: string, content: string): Promise<DirectMessage | null> {
-  const user = (await supabase.auth.getUser()).data.user;
-  if (!user) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  DebugLogger.info('[DM] sendDirectMessage from:', user?.id?.substring(0, 8) ?? 'no session', 'to:', receiverId.substring(0, 8));
+  if (!user) {
+    DebugLogger.error('[DM] No session — cannot send message');
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('direct_messages')
@@ -357,10 +362,11 @@ export async function sendDirectMessage(receiverId: string, content: string): Pr
     .single();
 
   if (error) {
-    console.error('Error sending direct message:', error);
+    DebugLogger.error('[DM] Insert error:', error.message, error.code);
     return null;
   }
 
+  DebugLogger.info('[DM] Message sent OK, id:', data.id.substring(0, 8));
   return data;
 }
 
