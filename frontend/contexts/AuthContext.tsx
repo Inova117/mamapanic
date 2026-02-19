@@ -23,6 +23,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const router = useRouter();
   const segments = useSegments();
 
@@ -63,7 +64,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        // Don't redirect away from reset-password when the recovery token is processed
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+        } else if (event === 'USER_UPDATED') {
+          // Password was changed — clear recovery state
+          setIsPasswordRecovery(false);
+        }
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -85,13 +93,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const inAuthGroup = segments[0] === 'auth';
 
     if (!user && !inAuthGroup) {
-      // Redirect to login if not authenticated and not in auth group
       router.replace('/auth/login');
-    } else if (user && inAuthGroup) {
-      // Redirect to home if authenticated and in auth group
+    } else if (user && inAuthGroup && !isPasswordRecovery) {
+      // isPasswordRecovery flag prevents redirect while the user resets their password
       navigateToHome(router);
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, isPasswordRecovery]);
 
   // Sign In
   const signIn = async (email: string, password: string) => {
