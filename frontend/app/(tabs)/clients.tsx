@@ -31,49 +31,11 @@ export default function ClientsScreen() {
                 return;
             }
 
-            // 2. Fetch all messages where the coach is involved (sender or receiver)
-            const { data: messages, error } = await supabase
-                .from('direct_messages')
-                .select('sender_id, receiver_id, content, created_at, read')
-                .or(`sender_id.eq.${coachId},receiver_id.eq.${coachId}`)
-                .order('created_at', { ascending: false });
-
-            if (error || !messages) {
-                console.error('Error fetching messages:', error);
-                setClients([]);
-                return;
-            }
-
-            // 3. Collect unique user IDs (the other person in the conversation, not the coach)
-            const seenUsers = new Set<string>();
-            const conversationMap: Record<string, { last_message: string; last_message_at: string; unread_count: number }> = {};
-
-            for (const msg of messages) {
-                const otherId = msg.sender_id === coachId ? msg.receiver_id : msg.sender_id;
-                conversationMap[otherId] = conversationMap[otherId] ?? {
-                    last_message: msg.content,
-                    last_message_at: msg.created_at,
-                    unread_count: 0,
-                };
-                // Count messages FROM the user that the coach hasn't read
-                if (msg.sender_id !== coachId && !msg.read) {
-                    conversationMap[otherId].unread_count += 1;
-                }
-                seenUsers.add(otherId);
-            }
-
-            const uniqueUserIds = Array.from(seenUsers);
-
-            if (uniqueUserIds.length === 0) {
-                setClients([]);
-                return;
-            }
-
-            // 4. Fetch profile info for those users
+            // 2. Fetch all registered users
             const { data: profiles, error: profileError } = await supabase
                 .from('profiles')
                 .select('id, name, email')
-                .in('id', uniqueUserIds);
+                .eq('role', 'user');
 
             if (profileError || !profiles) {
                 console.error('Error fetching profiles:', profileError);
@@ -81,7 +43,30 @@ export default function ClientsScreen() {
                 return;
             }
 
-            // 5. Merge into Client objects, sorted by most recent message
+            // 3. Fetch all messages where the coach is involved
+            const { data: messages, error } = await supabase
+                .from('direct_messages')
+                .select('sender_id, receiver_id, content, created_at, read')
+                .or(`sender_id.eq.${coachId},receiver_id.eq.${coachId}`)
+                .order('created_at', { ascending: false });
+
+            const conversationMap: Record<string, { last_message: string; last_message_at: string; unread_count: number }> = {};
+
+            if (messages) {
+                for (const msg of messages) {
+                    const otherId = msg.sender_id === coachId ? msg.receiver_id : msg.sender_id;
+                    conversationMap[otherId] = conversationMap[otherId] ?? {
+                        last_message: msg.content,
+                        last_message_at: msg.created_at,
+                        unread_count: 0,
+                    };
+                    if (msg.sender_id !== coachId && !msg.read) {
+                        conversationMap[otherId].unread_count += 1;
+                    }
+                }
+            }
+
+            // 4. Merge into Client objects, those with messages move to top
             const result: Client[] = profiles.map((p) => ({
                 user_id: p.id,
                 user_name: p.name || 'Usuario',
@@ -91,9 +76,15 @@ export default function ClientsScreen() {
                 unread_count: conversationMap[p.id]?.unread_count ?? 0,
             }));
 
-            result.sort((a, b) =>
-                new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
-            );
+            // Sort: Active conversations first (by most recent), then alphabetical for the rest
+            result.sort((a, b) => {
+                if (a.last_message_at && b.last_message_at) {
+                    return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+                }
+                if (a.last_message_at) return -1;
+                if (b.last_message_at) return 1;
+                return a.user_name.localeCompare(b.user_name);
+            });
 
             setClients(result);
         } catch (e) {
