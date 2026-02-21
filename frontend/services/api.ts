@@ -47,7 +47,8 @@ export const createCheckIn = async (checkInData: {
   );
 
   // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) throw new Error('Not authenticated');
 
   // Insert check-in
@@ -212,7 +213,8 @@ export const getCommunityPresence = async (): Promise<{
 
 export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
   // Get current user
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user) throw new Error('Not authenticated');
 
   // Get day number (count existing bitacoras)
