@@ -50,6 +50,58 @@ export default function TabLayout() {
     },
   };
 
+  // COACH LAYOUT
+  if (isCoach) {
+    return (
+      <Tabs screenOptions={tabBarOptions}>
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Panel',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="stats-chart" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="coach-ai"
+          options={{
+            title: 'Coach AI',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="flask" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="clients"
+          options={{
+            title: 'Clientes',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="people" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Perfil',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person" size={size} color={color} />
+            ),
+          }}
+        />
+
+        {/* Hide user screens from coaches */}
+        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="chat" options={{ href: null }} />
+        <Tabs.Screen name="bitacora" options={{ href: null }} />
+        <Tabs.Screen name="messages" options={{ href: null }} />
+        <Tabs.Screen name="analytics" options={{ href: null }} />
+      </Tabs>
+    );
+  }
+
+  // USER LAYOUT (Default)
   return (
     <Tabs screenOptions={tabBarOptions}>
       <Tabs.Screen
@@ -79,29 +131,15 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      {/* Dynamic 4th Tab: Coach Dashboard for coaches, Direct Messages for users */}
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Panel',
-          href: isCoach ? '/(tabs)/dashboard' : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart" size={size} color={color} />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="messages"
         options={{
           title: 'Coach',
-          href: !isCoach ? '/(tabs)/messages' : null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="mail" size={size} color={color} />
           ),
         }}
       />
-
       <Tabs.Screen
         name="profile"
         options={{
@@ -112,9 +150,11 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hidden Utility Screens */}
+      {/* Hidden Utility/Coach Screens */}
+      <Tabs.Screen name="dashboard" options={{ href: null }} />
       <Tabs.Screen name="analytics" options={{ href: null }} />
       <Tabs.Screen name="clients" options={{ href: null }} />
+      <Tabs.Screen name="coach-ai" options={{ href: null }} />
     </Tabs>
   );
 }

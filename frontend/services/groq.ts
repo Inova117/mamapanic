@@ -110,6 +110,42 @@ export async function getChatResponse(
     }
 }
 
+// ─── Coach Persona ────────────────────────────────────────────────────────────
+const COACH_SYSTEM_PROMPT = `Eres el "Asistente Clínico" de la Coach experta en maternidad, lactancia y sueño infantil.
+Tu función es servirle como base de conocimiento rápido, recordatorio de protocolos y asistente técnico avanzado.
+
+Reglas ESTRICTAS:
+1. No le hablas a una mamá, le hablas a la PROFESIONAL. Usa un tono técnico, directo, respetuoso y clínico.
+2. Si ella pregunta por un protocolo o manejo (ej. regresión de sueño, mastitis, depresión posparto), da la información concisa, médica o psicológica basada en evidencia.
+3. Puedes ayudarle a redactar respuestas empáticas para sus clientas si te lo pide ("Redacta un mensaje para...").
+4. Formatea tus respuestas de manera profesional, usando viñetas o listas numeradas para facilitar la lectura rápida.
+5. No usas lenguaje excesivamente cariñoso ni diminutivos. Eres una herramienta de trabajo profesional.`;
+
+/**
+ * Get AI chat response — Professional Coach Assistant
+ */
+export async function getCoachChatResponse(
+    userMessage: string,
+    conversationHistory: Array<{ role: string; content: string }> = []
+): Promise<string> {
+    try {
+        const messages: Message[] = [
+            { role: 'system', content: COACH_SYSTEM_PROMPT },
+            ...conversationHistory.map(m => ({
+                role: m.role as 'user' | 'assistant',
+                content: m.content,
+            })),
+            { role: 'user', content: userMessage },
+        ];
+
+        return await groqFetch(messages, 800); // Higher token limit for technical explanations
+    } catch (error) {
+        DebugLogger.error('[Groq] getCoachChatResponse error:', String(error));
+        return 'Ocurrió un error al consultar la base de conocimientos. Por favor, intenta de nuevo.';
+    }
+}
+
+
 /**
  * Get AI validation response for daily check-in
  */
