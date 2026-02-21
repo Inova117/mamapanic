@@ -68,6 +68,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Don't redirect away from reset-password when the recovery token is processed
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
+          // Force navigation to the reset screen because the email link might have landed them on /auth/login
+          router.replace('/auth/reset-password' as any);
         } else if (event === 'USER_UPDATED') {
           // Password was changed — clear recovery state
           setIsPasswordRecovery(false);
