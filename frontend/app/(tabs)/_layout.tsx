@@ -75,9 +75,18 @@ export default function TabLayout() {
         <Tabs.Screen
           name="clients"
           options={{
-            title: 'Clientes',
+            title: 'Mensajes',
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" size={size} color={color} />
+              <Ionicons name="chatbubbles" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="coach-bitacoras"
+          options={{
+            title: 'Bitácoras',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="journal" size={size} color={color} />
             ),
           }}
         />
@@ -100,6 +109,7 @@ export default function TabLayout() {
       </Tabs>
     );
   }
+
 
   // USER LAYOUT (Default)
   return (
