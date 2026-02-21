@@ -91,11 +91,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === 'auth';
+    const onResetPage = String(segments[1]) === 'reset-password';
 
     if (!user && !inAuthGroup) {
       router.replace('/auth/login');
-    } else if (user && inAuthGroup && !isPasswordRecovery) {
-      // isPasswordRecovery flag prevents redirect while the user resets their password
+    } else if (user && inAuthGroup && !onResetPage && !isPasswordRecovery) {
+      // isPasswordRecovery or being on the reset-password page prevents redirect while the user resets their password
       navigateToHome(router);
     }
   }, [user, segments, isLoading, isPasswordRecovery]);
