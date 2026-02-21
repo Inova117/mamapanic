@@ -26,16 +26,11 @@ export async function isCoach(): Promise<boolean> {
 
 /**
  * Get the appropriate home route based on user role
- * - Coach -> /coach (dashboard)
- * - User/Premium -> /(tabs) (main app)
+ * All roles go to /(tabs) because the tab layout handles the role-based UI
  */
 export async function getHomeRoute(): Promise<string> {
     const role = await getUserRole();
-
-    if (role === 'coach') {
-        return '/coach';
-    }
-
+    // Default route for everyone is the tabs layout
     return '/(tabs)';
 }
 
