@@ -73,9 +73,12 @@ export default function DashboardScreen() {
     try {
       const headers = await getAuthHeaders();
       const response = await axios.get(`${API_URL}/api/coach/clients`, { headers });
-      setClients(response.data);
+      // The endpoint might return an array directly OR an object like { clients: [...] }
+      const raw = response.data;
+      setClients(Array.isArray(raw) ? raw : (raw?.clients ?? []));
     } catch (error) {
       console.error('Error fetching clients:', error);
+      setClients([]);
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +89,11 @@ export default function DashboardScreen() {
     try {
       const headers = await getAuthHeaders();
       const response = await axios.get(`${API_URL}/api/coach/client/${userId}/bitacoras`, { headers });
-      setClientBitacoras(response.data);
+      const raw = response.data;
+      setClientBitacoras(Array.isArray(raw) ? raw : (raw?.bitacoras ?? []));
     } catch (error) {
       console.error('Error fetching bitacoras:', error);
+      setClientBitacoras([]);
     } finally {
       setLoadingBitacoras(false);
     }

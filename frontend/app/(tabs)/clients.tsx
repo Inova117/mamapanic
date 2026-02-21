@@ -35,9 +35,11 @@ export default function ClientsScreen() {
         try {
             const headers = await getAuthHeaders();
             const response = await axios.get(`${API_URL}/api/coach/clients`, { headers });
-            setClients(response.data);
+            const raw = response.data;
+            setClients(Array.isArray(raw) ? raw : (raw?.clients ?? []));
         } catch (error) {
             console.error('Error fetching clients:', error);
+            setClients([]);
         } finally {
             setIsLoading(false);
         }
