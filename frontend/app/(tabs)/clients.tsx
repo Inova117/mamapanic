@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
+import { colors, fontSize, spacing } from '../../theme/theme';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
-
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+import { supabase } from '../../lib/supabase';
 
 interface Client {
     user_id: string;
     user_name: string;
     user_email: string;
-    user_picture?: string;
-    last_message?: string;
-    last_message_at?: string;
+    last_message: string;
+    last_message_at: string;
     unread_count: number;
 }
 
@@ -23,22 +20,84 @@ export default function ClientsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
-    const getAuthHeaders = async () => {
-        const token = Platform.OS === 'web'
-            ? localStorage.getItem('session_token')
-            : null;
-        return token ? { Authorization: `Bearer ${token}` } : {};
-    };
-
     const fetchClients = async () => {
         setIsLoading(true);
         try {
-            const headers = await getAuthHeaders();
-            const response = await axios.get(`${API_URL}/api/coach/clients`, { headers });
-            const raw = response.data;
-            setClients(Array.isArray(raw) ? raw : (raw?.clients ?? []));
-        } catch (error) {
-            console.error('Error fetching clients:', error);
+            // 1. Get the current coach session
+            const { data: { session } } = await supabase.auth.getSession();
+            const coachId = session?.user?.id;
+            if (!coachId) {
+                setClients([]);
+                return;
+            }
+
+            // 2. Fetch all messages where the coach is involved (sender or receiver)
+            const { data: messages, error } = await supabase
+                .from('direct_messages')
+                .select('sender_id, receiver_id, content, created_at, read')
+                .or(`sender_id.eq.${coachId},receiver_id.eq.${coachId}`)
+                .order('created_at', { ascending: false });
+
+            if (error || !messages) {
+                console.error('Error fetching messages:', error);
+                setClients([]);
+                return;
+            }
+
+            // 3. Collect unique user IDs (the other person in the conversation, not the coach)
+            const seenUsers = new Set<string>();
+            const conversationMap: Record<string, { last_message: string; last_message_at: string; unread_count: number }> = {};
+
+            for (const msg of messages) {
+                const otherId = msg.sender_id === coachId ? msg.receiver_id : msg.sender_id;
+                conversationMap[otherId] = conversationMap[otherId] ?? {
+                    last_message: msg.content,
+                    last_message_at: msg.created_at,
+                    unread_count: 0,
+                };
+                // Count messages FROM the user that the coach hasn't read
+                if (msg.sender_id !== coachId && !msg.read) {
+                    conversationMap[otherId].unread_count += 1;
+                }
+                seenUsers.add(otherId);
+            }
+
+            const uniqueUserIds = Array.from(seenUsers);
+
+            if (uniqueUserIds.length === 0) {
+                setClients([]);
+                return;
+            }
+
+            // 4. Fetch profile info for those users
+            const { data: profiles, error: profileError } = await supabase
+                .from('profiles')
+                .select('id, name, email')
+                .in('id', uniqueUserIds);
+
+            if (profileError || !profiles) {
+                console.error('Error fetching profiles:', profileError);
+                setClients([]);
+                return;
+            }
+
+            // 5. Merge into Client objects, sorted by most recent message
+            const result: Client[] = profiles.map((p) => ({
+                user_id: p.id,
+                user_name: p.name || 'Usuario',
+                user_email: p.email || '',
+                last_message: conversationMap[p.id]?.last_message ?? '',
+                last_message_at: conversationMap[p.id]?.last_message_at ?? '',
+                unread_count: conversationMap[p.id]?.unread_count ?? 0,
+            }));
+
+            result.sort((a, b) =>
+                new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            );
+
+            setClients(result);
+        } catch (e) {
+            console.error('Exception in fetchClients:', e);
             setClients([]);
         } finally {
             setIsLoading(false);
@@ -47,6 +106,10 @@ export default function ClientsScreen() {
 
     useEffect(() => {
         fetchClients();
+
+        // Poll every 10s for new conversations
+        const interval = setInterval(fetchClients, 10000);
+        return () => clearInterval(interval);
     }, []);
 
     const getInitials = (name: string, email: string) => {
@@ -87,21 +150,15 @@ export default function ClientsScreen() {
                             style={styles.clientCard}
                             onPress={() => router.push(`/messages/${client.user_id}` as any)}
                         >
-                            {client.user_picture ? (
-                                <Image source={{ uri: client.user_picture }} style={styles.avatar} />
-                            ) : (
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.avatarText}>{getInitials(client.user_name, client.user_email)}</Text>
-                                </View>
-                            )}
+                            <View style={styles.avatarPlaceholder}>
+                                <Text style={styles.avatarText}>{getInitials(client.user_name, client.user_email)}</Text>
+                            </View>
 
                             <View style={styles.clientInfo}>
-                                <Text style={styles.clientName}>{client.user_name || 'Usuario'}</Text>
-                                {client.last_message ? (
-                                    <Text style={styles.lastMessage} numberOfLines={1}>{client.last_message}</Text>
-                                ) : (
-                                    <Text style={styles.clientEmail} numberOfLines={1}>{client.user_email}</Text>
-                                )}
+                                <Text style={styles.clientName}>{client.user_name}</Text>
+                                <Text style={styles.lastMessage} numberOfLines={1}>
+                                    {client.last_message || client.user_email}
+                                </Text>
                             </View>
 
                             {client.unread_count > 0 && (
@@ -138,9 +195,7 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
         marginTop: spacing.xs,
     },
-    scrollView: {
-        flex: 1,
-    },
+    scrollView: { flex: 1 },
     listContent: {
         paddingHorizontal: spacing.lg,
         paddingBottom: 100,
@@ -152,12 +207,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: spacing.md,
         marginBottom: spacing.sm,
-    },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginRight: spacing.md,
     },
     avatarPlaceholder: {
         width: 48,
@@ -173,18 +222,11 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: colors.text.primary,
     },
-    clientInfo: {
-        flex: 1,
-    },
+    clientInfo: { flex: 1 },
     clientName: {
         fontSize: fontSize.md,
         fontWeight: '600',
         color: colors.text.primary,
-    },
-    clientEmail: {
-        fontSize: fontSize.sm,
-        color: colors.text.secondary,
-        marginTop: 2,
     },
     lastMessage: {
         fontSize: fontSize.sm,
