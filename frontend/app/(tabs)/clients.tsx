@@ -35,7 +35,7 @@ export default function ClientsScreen() {
             const { data: profiles, error: profileError } = await supabase
                 .from('profiles')
                 .select('id, name, email')
-                .eq('role', 'user');
+                .in('role', ['user', 'premium']);
 
             if (profileError || !profiles) {
                 console.error('Error fetching profiles:', profileError);

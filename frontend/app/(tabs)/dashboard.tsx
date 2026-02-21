@@ -71,11 +71,48 @@ export default function DashboardScreen() {
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/api/coach/clients`, { headers });
-      // The endpoint might return an array directly OR an object like { clients: [...] }
-      const raw = response.data;
-      setClients(Array.isArray(raw) ? raw : (raw?.clients ?? []));
+      const { data: { session } } = await supabase.auth.getSession();
+      const coachId = session?.user?.id;
+      if (!coachId) {
+        setClients([]);
+        return;
+      }
+
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('role', ['user', 'premium']);
+
+      if (profileError || !profiles) {
+        setClients([]);
+        return;
+      }
+
+      const { data: messages } = await supabase
+        .from('direct_messages')
+        .select('sender_id, receiver_id, content, created_at, read')
+        .or(`sender_id.eq.${coachId},receiver_id.eq.${coachId}`)
+        .order('created_at', { ascending: false });
+
+      const conversationMap: Record<string, { unread_count: number }> = {};
+      if (messages) {
+        for (const msg of messages) {
+          const otherId = msg.sender_id === coachId ? msg.receiver_id : msg.sender_id;
+          conversationMap[otherId] = conversationMap[otherId] ?? { unread_count: 0 };
+          if (msg.sender_id !== coachId && !msg.read) {
+            conversationMap[otherId].unread_count += 1;
+          }
+        }
+      }
+
+      const result: Client[] = profiles.map((p) => ({
+        user_id: p.id,
+        user_name: p.name || 'Usuario',
+        user_email: p.email || '',
+        unread_count: conversationMap[p.id]?.unread_count ?? 0,
+      }));
+
+      setClients(result);
     } catch (error) {
       console.error('Error fetching clients:', error);
       setClients([]);
@@ -124,7 +161,7 @@ export default function DashboardScreen() {
         .from('profiles')
         .select('id, name, email, role')
         .in('id', userIds)
-        .eq('role', 'user');
+        .in('role', ['user', 'premium']);
 
       if (profilesError) throw profilesError;
 
