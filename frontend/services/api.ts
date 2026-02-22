@@ -228,11 +228,39 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
   // Generate AI summary
   const aiSummary = await getBitacoraSummary(bitacoraData);
 
+  // Map nested objects to flat columns to match `bitacoras` schema
+  const dbPayload = { ...bitacoraData };
+
+  if (bitacoraData.nap_1) {
+    dbPayload.nap_1_duration_minutes = bitacoraData.nap_1.duration_minutes;
+    dbPayload.nap_1_laid_down = bitacoraData.nap_1.laid_down_time;
+    dbPayload.nap_1_fell_asleep = bitacoraData.nap_1.fell_asleep_time;
+    dbPayload.nap_1_how_fell_asleep = bitacoraData.nap_1.how_fell_asleep;
+    dbPayload.nap_1_woke_up = bitacoraData.nap_1.woke_up_time;
+    delete dbPayload.nap_1;
+  }
+  if (bitacoraData.nap_2) {
+    dbPayload.nap_2_duration_minutes = bitacoraData.nap_2.duration_minutes;
+    dbPayload.nap_2_laid_down = bitacoraData.nap_2.laid_down_time;
+    dbPayload.nap_2_fell_asleep = bitacoraData.nap_2.fell_asleep_time;
+    dbPayload.nap_2_how_fell_asleep = bitacoraData.nap_2.how_fell_asleep;
+    dbPayload.nap_2_woke_up = bitacoraData.nap_2.woke_up_time;
+    delete dbPayload.nap_2;
+  }
+  if (bitacoraData.nap_3) {
+    dbPayload.nap_3_duration_minutes = bitacoraData.nap_3.duration_minutes;
+    dbPayload.nap_3_laid_down = bitacoraData.nap_3.laid_down_time;
+    dbPayload.nap_3_fell_asleep = bitacoraData.nap_3.fell_asleep_time;
+    dbPayload.nap_3_how_fell_asleep = bitacoraData.nap_3.how_fell_asleep;
+    dbPayload.nap_3_woke_up = bitacoraData.nap_3.woke_up_time;
+    delete dbPayload.nap_3;
+  }
+
   // Insert bitacora
   const { data, error } = await supabase
     .from('bitacoras')
     .insert([{
-      ...bitacoraData,
+      ...dbPayload,
       user_id: user.id,
       day_number: dayNumber,
       ai_summary: aiSummary,

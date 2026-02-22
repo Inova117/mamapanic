@@ -90,6 +90,9 @@ export type Bitacora = {
     morning_wake_time?: string;
     number_of_wakings?: number;
     baby_mood?: string;
+    nap_1_duration_minutes?: number;
+    nap_2_duration_minutes?: number;
+    nap_3_duration_minutes?: number;
     created_at: string;
     updated_at: string;
 };

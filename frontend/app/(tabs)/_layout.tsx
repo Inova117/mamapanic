@@ -163,6 +163,9 @@ export default function TabLayout() {
       {/* Hidden Utility/Coach Screens */}
       <Tabs.Screen name="dashboard" options={{ href: null }} />
       <Tabs.Screen name="analytics" options={{ href: null }} />
+      <Tabs.Screen name="coach-ai" options={{ href: null }} />
+      <Tabs.Screen name="clients" options={{ href: null }} />
+      <Tabs.Screen name="coach-bitacoras" options={{ href: null }} />
       <Tabs.Screen name="clients" options={{ href: null }} />
       <Tabs.Screen name="coach-ai" options={{ href: null }} />
     </Tabs>
