@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -8,7 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius, touchTarget } from '../theme/theme';
@@ -31,9 +32,10 @@ interface SleepCoachBitacoraProps {
 
 type Section = 'sleep' | 'naps' | 'night' | 'complete';
 
-// Time picker options (simplified)
-const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-const MINUTES = ['00', '15', '30', '45'];
+// Time picker options (12-hour format with AM/PM)
+const HOURS_12 = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+const MINUTES = ['00', '10', '20', '30', '40', '50'];
+const PERIODS = ['AM', 'PM'];
 
 interface TimePickerProps {
   value?: string;
@@ -43,17 +45,42 @@ interface TimePickerProps {
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon }) => {
-  const [hour, setHour] = useState(value?.split(':')[0] || '20');
-  const [minute, setMinute] = useState(value?.split(':')[1] || '00');
+  // Convert 24h to 12h format for display
+  const convert24to12 = (time24?: string) => {
+    if (!time24) return { hour: '8', minute: '00', period: 'PM' };
+    const [h, m] = time24.split(':');
+    const hour24 = parseInt(h);
+    const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+    const period = hour24 >= 12 ? 'PM' : 'AM';
+    return { hour: hour12.toString(), minute: m, period };
+  };
+
+  // Convert 12h to 24h format for storage
+  const convert12to24 = (hour12: string, minute: string, period: string) => {
+    let hour24 = parseInt(hour12);
+    if (period === 'AM' && hour24 === 12) hour24 = 0;
+    if (period === 'PM' && hour24 !== 12) hour24 += 12;
+    return `${hour24.toString().padStart(2, '0')}:${minute}`;
+  };
+
+  const initial = convert24to12(value);
+  const [hour, setHour] = useState(initial.hour);
+  const [minute, setMinute] = useState(initial.minute);
+  const [period, setPeriod] = useState(initial.period);
 
   const handleHourChange = (h: string) => {
     setHour(h);
-    onChange(`${h}:${minute}`);
+    onChange(convert12to24(h, minute, period));
   };
 
   const handleMinuteChange = (m: string) => {
     setMinute(m);
-    onChange(`${hour}:${m}`);
+    onChange(convert12to24(hour, m, period));
+  };
+
+  const handlePeriodChange = (p: string) => {
+    setPeriod(p);
+    onChange(convert12to24(hour, minute, p));
   };
 
   return (
@@ -65,7 +92,7 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
         <View style={styles.timeInputGroup}>
           <Text style={styles.timeInputLabel}>Hora</Text>
           <View style={styles.timeButtonsRow}>
-            {['19', '20', '21', '22', '23', '00', '01', '02', '03', '04', '05', '06', '07', '08'].map((h) => (
+            {HOURS_12.map((h) => (
               <TouchableOpacity
                 key={h}
                 style={[styles.timeQuickButton, hour === h && styles.timeQuickButtonSelected]}
@@ -94,10 +121,26 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
             ))}
           </View>
         </View>
+        <View style={styles.timeInputGroup}>
+          <Text style={styles.timeInputLabel}>AM/PM</Text>
+          <View style={styles.timeButtonsRow}>
+            {PERIODS.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.timePeriodButton, period === p && styles.timePeriodButtonSelected]}
+                onPress={() => handlePeriodChange(p)}
+              >
+                <Text style={[styles.timePeriodText, period === p && styles.timePeriodTextSelected]}>
+                  {p}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </View>
       <View style={styles.timeDisplay}>
         <Ionicons name="time" size={20} color={colors.accent.sage} />
-        <Text style={styles.timeDisplayText}>{hour}:{minute}</Text>
+        <Text style={styles.timeDisplayText}>{hour}:{minute} {period}</Text>
       </View>
     </View>
   );
@@ -433,27 +476,59 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   );
 
 
-  const renderCompleteSection = () => (
-    <View style={styles.completeContainer}>
-      <Ionicons name="checkmark-circle" size={80} color={colors.accent.sage} />
-      <Text style={styles.completeTitle}>¡Bitácora guardada!</Text>
-      <Text style={styles.completeSubtitle}>Día #{result?.day_number}</Text>
-      
-      {result?.ai_summary && (
-        <View style={styles.aiSummaryContainer}>
-          <Text style={styles.aiSummaryLabel}>Resumen para la coach:</Text>
-          <Text style={styles.aiSummaryText}>{result.ai_summary}</Text>
-        </View>
-      )}
-      
-      <TouchableOpacity 
-        style={styles.doneButton}
-        onPress={onClose}
-      >
-        <Text style={styles.doneButtonText}>Listo</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderCompleteSection = () => {
+    const scaleAnim = useRef(new Animated.Value(0)).current;
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, []);
+
+    return (
+      <View style={styles.completeContainer}>
+        <Animated.View style={[styles.successIconContainer, { transform: [{ scale: scaleAnim }] }]}>
+          <Ionicons name="checkmark-circle" size={100} color={colors.accent.sage} />
+        </Animated.View>
+        <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }}>
+          <Text style={styles.completeTitle}>¡Bitácora guardada con éxito!</Text>
+          <Text style={styles.completeSubtitle}>Día #{result?.day_number}</Text>
+          <Text style={styles.completeMessage}>
+            Tu registro ha sido enviado a tu coach y está disponible en tu historial.
+          </Text>
+          
+          {result?.ai_summary && (
+            <View style={styles.aiSummaryContainer}>
+              <View style={styles.aiSummaryHeader}>
+                <Ionicons name="sparkles" size={20} color={colors.accent.gold} />
+                <Text style={styles.aiSummaryLabel}>Resumen IA para tu coach</Text>
+              </View>
+              <Text style={styles.aiSummaryText}>{result.ai_summary}</Text>
+            </View>
+          )}
+          
+          <TouchableOpacity 
+            style={styles.doneButton}
+            onPress={onClose}
+          >
+            <Ionicons name="checkmark" size={20} color={colors.text.primary} />
+            <Text style={styles.doneButtonText}>Listo</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  };
 
   const renderSection = () => {
     switch (section) {
@@ -611,6 +686,29 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xxl,
     fontWeight: '700',
     color: colors.accent.sage,
+  },
+  timePeriodButton: {
+    minWidth: 80,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background.elevated,
+    borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  timePeriodButtonSelected: {
+    backgroundColor: colors.accent.gold,
+    borderColor: colors.accent.sage,
+  },
+  timePeriodText: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    color: colors.text.secondary,
+  },
+  timePeriodTextSelected: {
+    color: colors.text.primary,
+    fontWeight: '700',
   },
   optionSelectorContainer: {
     marginBottom: spacing.md,
@@ -822,31 +920,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xxl,
   },
+  successIconContainer: {
+    marginBottom: spacing.lg,
+    transform: [{ scale: 1 }],
+  },
   completeTitle: {
-    fontSize: fontSize.xxl,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text.primary,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   completeSubtitle: {
     fontSize: fontSize.lg,
+    fontWeight: '600',
+    color: colors.accent.sage,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  completeMessage: {
+    fontSize: fontSize.md,
     color: colors.text.secondary,
-    marginBottom: spacing.lg,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   aiSummaryContainer: {
     backgroundColor: colors.background.card,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: colors.accent.sage,
-    marginBottom: spacing.lg,
+    borderLeftColor: colors.accent.gold,
+    marginBottom: spacing.xl,
     width: '100%',
   },
+  aiSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   aiSummaryLabel: {
-    fontSize: fontSize.sm,
-    color: colors.accent.sage,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
+    fontSize: fontSize.md,
+    color: colors.accent.gold,
+    fontWeight: '700',
   },
   aiSummaryText: {
     fontSize: fontSize.md,
@@ -854,14 +972,25 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   doneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.accent.sage,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xxl,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
+    minHeight: 56,
+    minWidth: 200,
+    shadowColor: colors.accent.sage,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   doneButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
+    fontSize: fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
 });
