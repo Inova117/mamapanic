@@ -256,6 +256,11 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
     delete dbPayload.nap_3;
   }
 
+  // Keep night_wakings as JSONB array
+  if (bitacoraData.night_wakings) {
+    dbPayload.night_wakings = bitacoraData.night_wakings;
+  }
+
   // Insert bitacora
   const { data, error } = await supabase
     .from('bitacoras')

@@ -29,7 +29,7 @@ interface SleepCoachBitacoraProps {
   onClose?: () => void;
 }
 
-type Section = 'morning' | 'naps' | 'feeding' | 'night' | 'wakings' | 'complete';
+type Section = 'sleep' | 'naps' | 'night' | 'complete';
 
 // Time picker options (simplified)
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
@@ -43,66 +43,62 @@ interface TimePickerProps {
 }
 
 const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon }) => {
-  const [showPicker, setShowPicker] = useState(false);
-  const [selectedHour, setSelectedHour] = useState(value?.split(':')[0] || '08');
-  const [selectedMinute, setSelectedMinute] = useState(value?.split(':')[1] || '00');
+  const [hour, setHour] = useState(value?.split(':')[0] || '20');
+  const [minute, setMinute] = useState(value?.split(':')[1] || '00');
 
-  const handleConfirm = () => {
-    onChange(`${selectedHour}:${selectedMinute}`);
-    setShowPicker(false);
+  const handleHourChange = (h: string) => {
+    setHour(h);
+    onChange(`${h}:${minute}`);
+  };
+
+  const handleMinuteChange = (m: string) => {
+    setMinute(m);
+    onChange(`${hour}:${m}`);
   };
 
   return (
     <View style={styles.timePickerContainer}>
       <Text style={styles.inputLabel}>
-        <Ionicons name={icon as any} size={16} color={colors.accent.gold} /> {label}
+        <Ionicons name={icon as any} size={18} color={colors.accent.gold} /> {label}
       </Text>
-      <TouchableOpacity 
-        style={styles.timeButton}
-        onPress={() => setShowPicker(!showPicker)}
-      >
-        <Text style={styles.timeButtonText}>
-          {value || 'Seleccionar'}
-        </Text>
-        <Ionicons name="time-outline" size={20} color={colors.text.secondary} />
-      </TouchableOpacity>
-      
-      {showPicker && (
-        <View style={styles.timePickerDropdown}>
-          <View style={styles.timePickerRow}>
-            <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
-              {HOURS.map((h) => (
-                <TouchableOpacity
-                  key={h}
-                  style={[styles.timeOption, selectedHour === h && styles.timeOptionSelected]}
-                  onPress={() => setSelectedHour(h)}
-                >
-                  <Text style={[styles.timeOptionText, selectedHour === h && styles.timeOptionTextSelected]}>
-                    {h}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <Text style={styles.timeSeparator}>:</Text>
-            <ScrollView style={styles.timeColumn} showsVerticalScrollIndicator={false}>
-              {MINUTES.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.timeOption, selectedMinute === m && styles.timeOptionSelected]}
-                  onPress={() => setSelectedMinute(m)}
-                >
-                  <Text style={[styles.timeOptionText, selectedMinute === m && styles.timeOptionTextSelected]}>
-                    {m}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+      <View style={styles.timePickerInline}>
+        <View style={styles.timeInputGroup}>
+          <Text style={styles.timeInputLabel}>Hora</Text>
+          <View style={styles.timeButtonsRow}>
+            {['19', '20', '21', '22', '23', '00', '01', '02', '03', '04', '05', '06', '07', '08'].map((h) => (
+              <TouchableOpacity
+                key={h}
+                style={[styles.timeQuickButton, hour === h && styles.timeQuickButtonSelected]}
+                onPress={() => handleHourChange(h)}
+              >
+                <Text style={[styles.timeQuickText, hour === h && styles.timeQuickTextSelected]}>
+                  {h}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <TouchableOpacity style={styles.timeConfirmButton} onPress={handleConfirm}>
-            <Text style={styles.timeConfirmText}>Confirmar</Text>
-          </TouchableOpacity>
         </View>
-      )}
+        <View style={styles.timeInputGroup}>
+          <Text style={styles.timeInputLabel}>Minutos</Text>
+          <View style={styles.timeButtonsRow}>
+            {MINUTES.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.timeQuickButton, minute === m && styles.timeQuickButtonSelected]}
+                onPress={() => handleMinuteChange(m)}
+              >
+                <Text style={[styles.timeQuickText, minute === m && styles.timeQuickTextSelected]}>
+                  {m}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+      <View style={styles.timeDisplay}>
+        <Ionicons name="time" size={20} color={colors.accent.sage} />
+        <Text style={styles.timeDisplayText}>{hour}:{minute}</Text>
+      </View>
     </View>
   );
 };
@@ -147,81 +143,58 @@ interface NapSectionProps {
 }
 
 const NapSection: React.FC<NapSectionProps> = ({ napNumber, nap, onChange }) => {
-  const [expanded, setExpanded] = useState(false);
-
+  const hasData = nap.duration_minutes || nap.woke_up_time;
+  
   return (
     <View style={styles.napContainer}>
-      <TouchableOpacity 
-        style={styles.napHeader}
-        onPress={() => setExpanded(!expanded)}
-      >
-        <Text style={styles.napTitle}>SIESTA {napNumber}</Text>
-        <Ionicons 
-          name={expanded ? 'chevron-up' : 'chevron-down'} 
-          size={20} 
-          color={colors.text.secondary} 
-        />
-      </TouchableOpacity>
+      <View style={styles.napHeader}>
+        <View style={styles.napTitleRow}>
+          <Ionicons name="bed" size={20} color={colors.accent.sage} />
+          <Text style={styles.napTitle}>Siesta {napNumber}</Text>
+          {hasData && <Ionicons name="checkmark-circle" size={18} color={colors.accent.sage} />}
+        </View>
+        <Text style={styles.napOptional}>Opcional</Text>
+      </View>
       
-      {expanded && (
-        <View style={styles.napContent}>
-          <TimePicker
-            label="Acosté a las"
-            icon="bed-outline"
-            value={nap.laid_down_time}
-            onChange={(time) => onChange({ ...nap, laid_down_time: time })}
-          />
-          <TimePicker
-            label="Se durmió a las"
-            icon="moon-outline"
-            value={nap.fell_asleep_time}
-            onChange={(time) => onChange({ ...nap, fell_asleep_time: time })}
-          />
-          <OptionSelector
-            label="¿Cómo se durmió?"
-            icon="heart-outline"
-            options={HOW_FELL_ASLEEP_OPTIONS}
-            value={nap.how_fell_asleep}
-            onChange={(value) => onChange({ ...nap, how_fell_asleep: value })}
-          />
-          <TimePicker
-            label="Se despertó"
-            icon="sunny-outline"
-            value={nap.woke_up_time}
-            onChange={(time) => onChange({ ...nap, woke_up_time: time })}
-          />
-          <View style={styles.durationContainer}>
-            <Text style={styles.inputLabel}>
-              <Ionicons name="timer-outline" size={16} color={colors.accent.gold} /> Duración (minutos)
-            </Text>
-            <View style={styles.durationButtons}>
-              {[15, 30, 45, 60, 90, 120].map((min) => (
-                <TouchableOpacity
-                  key={min}
-                  style={[
-                    styles.durationButton,
-                    nap.duration_minutes === min && styles.durationButtonSelected
-                  ]}
-                  onPress={() => onChange({ ...nap, duration_minutes: min })}
-                >
-                  <Text style={[
-                    styles.durationText,
-                    nap.duration_minutes === min && styles.durationTextSelected
-                  ]}>
-                    {min}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+      <View style={styles.napContent}>
+        <View style={styles.durationContainer}>
+          <Text style={styles.inputLabel}>
+            <Ionicons name="timer-outline" size={18} color={colors.accent.gold} /> ¿Cuánto durmió?
+          </Text>
+          <View style={styles.durationButtons}>
+            {[15, 30, 45, 60, 90, 120, 150, 180].map((min) => (
+              <TouchableOpacity
+                key={min}
+                style={[
+                  styles.durationButton,
+                  nap.duration_minutes === min && styles.durationButtonSelected
+                ]}
+                onPress={() => onChange({ ...nap, duration_minutes: min })}
+              >
+                <Text style={[
+                  styles.durationText,
+                  nap.duration_minutes === min && styles.durationTextSelected
+                ]}>
+                  {min}m
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-      )}
+        
+        <TimePicker
+          label="Se despertó a las"
+          icon="sunny-outline"
+          value={nap.woke_up_time}
+          onChange={(time) => onChange({ ...nap, woke_up_time: time })}
+        />
+      </View>
     </View>
   );
 };
 
 export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComplete, onClose }) => {
-  const [section, setSection] = useState<Section>('morning');
+  const [section, setSection] = useState<Section>('sleep');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<DailyBitacora | null>(null);
   
@@ -275,21 +248,32 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
     }
   };
 
-  const renderMorningSection = () => (
+  const renderSleepSection = () => (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>
-        <Ionicons name="sunny" size={24} color={colors.accent.gold} /> Mañana Anterior
+        <Ionicons name="sunny" size={28} color={colors.accent.gold} /> Horarios de Sueño
       </Text>
       <Text style={styles.sectionSubtitle}>
-        ¿A qué hora despertó el bebé ayer?
+        Cuéntanos sobre el sueño del bebé
       </Text>
       
-      <TimePicker
-        label="Hora de despertar día anterior"
-        icon="sunny-outline"
-        value={previousDayWakeTime}
-        onChange={setPreviousDayWakeTime}
-      />
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="¿A qué hora despertó ayer?"
+          icon="sunny-outline"
+          value={previousDayWakeTime}
+          onChange={setPreviousDayWakeTime}
+        />
+      </View>
+
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="¿A qué hora despertó hoy?"
+          icon="sunny"
+          value={morningWakeTime}
+          onChange={setMorningWakeTime}
+        />
+      </View>
       
       <TouchableOpacity 
         style={styles.nextButton}
@@ -304,10 +288,10 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   const renderNapsSection = () => (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>
-        <Ionicons name="moon" size={24} color={colors.accent.sage} /> Siestas del Día
+        <Ionicons name="moon" size={28} color={colors.accent.sage} /> Siestas del Día
       </Text>
       <Text style={styles.sectionSubtitle}>
-        Toca cada siesta para expandir los detalles
+        Registra las siestas que tuvo (todas son opcionales)
       </Text>
       
       <NapSection napNumber={1} nap={nap1} onChange={setNap1} />
@@ -317,40 +301,7 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
       <View style={styles.navigationButtons}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => setSection('morning')}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
-          <Text style={styles.backButtonText}>Atrás</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.nextButton}
-          onPress={() => setSection('feeding')}
-        >
-          <Text style={styles.nextButtonText}>Siguiente</Text>
-          <Ionicons name="arrow-forward" size={20} color={colors.text.primary} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderFeedingSection = () => (
-    <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="nutrition" size={24} color={colors.accent.gold} /> Alimentación
-      </Text>
-      
-      <OptionSelector
-        label="¿Cómo comió a lo largo del día?"
-        icon="restaurant-outline"
-        options={HOW_BABY_ATE_OPTIONS}
-        value={howBabyAte}
-        onChange={setHowBabyAte}
-      />
-      
-      <View style={styles.navigationButtons}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setSection('naps')}
+          onPress={() => setSection('sleep')}
         >
           <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
           <Text style={styles.backButtonText}>Atrás</Text>
@@ -366,101 +317,57 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
     </View>
   );
 
+
   const renderNightSection = () => (
     <View style={styles.sectionContainer}>
       <Text style={styles.sectionTitle}>
-        <Ionicons name="bed" size={24} color={colors.accent.terracotta} /> Rutina Nocturna
+        <Ionicons name="moon" size={28} color={colors.accent.terracotta} /> Noche y Despertares
+      </Text>
+      <Text style={styles.sectionSubtitle}>
+        Última información del día
       </Text>
       
-      <TimePicker
-        label="Rutina relajante comenzó"
-        icon="water-outline"
-        value={relaxingRoutineStart}
-        onChange={setRelaxingRoutineStart}
-      />
-      
-      <OptionSelector
-        label="Humor del bebé"
-        icon="happy-outline"
-        options={BABY_MOOD_OPTIONS}
-        value={babyMood}
-        onChange={setBabyMood}
-      />
-      
-      <TimePicker
-        label="Última toma del día"
-        icon="cafe-outline"
-        value={lastFeedingTime}
-        onChange={setLastFeedingTime}
-      />
-      
-      <TimePicker
-        label="Le acosté"
-        icon="bed-outline"
-        value={laidDownForBed}
-        onChange={setLaidDownForBed}
-      />
-      
-      <TimePicker
-        label="Se durmió"
-        icon="moon-outline"
-        value={fellAsleepAt}
-        onChange={setFellAsleepAt}
-      />
-      
-      <View style={styles.durationContainer}>
-        <Text style={styles.inputLabel}>
-          <Ionicons name="hourglass-outline" size={16} color={colors.accent.gold} /> Tardó en dormirse (min)
-        </Text>
-        <View style={styles.durationButtons}>
-          {[5, 10, 15, 20, 30, 45, 60].map((min) => (
-            <TouchableOpacity
-              key={min}
-              style={[
-                styles.durationButton,
-                timeToFallAsleep === min && styles.durationButtonSelected
-              ]}
-              onPress={() => setTimeToFallAsleep(min)}
-            >
-              <Text style={[
-                styles.durationText,
-                timeToFallAsleep === min && styles.durationTextSelected
-              ]}>
-                {min}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <View style={styles.fieldCard}>
+        <OptionSelector
+          label="¿Cómo comió durante el día?"
+          icon="restaurant-outline"
+          options={HOW_BABY_ATE_OPTIONS}
+          value={howBabyAte}
+          onChange={setHowBabyAte}
+        />
       </View>
-      
-      <View style={styles.navigationButtons}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => setSection('feeding')}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
-          <Text style={styles.backButtonText}>Atrás</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.nextButton}
-          onPress={() => setSection('wakings')}
-        >
-          <Text style={styles.nextButtonText}>Siguiente</Text>
-          <Ionicons name="arrow-forward" size={20} color={colors.text.primary} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
 
-  const renderWakingsSection = () => (
-    <View style={styles.sectionContainer}>
-      <Text style={styles.sectionTitle}>
-        <Ionicons name="alert-circle" size={24} color={colors.accent.terracotta} /> Despertares Nocturnos
-      </Text>
+      <View style={styles.fieldCard}>
+        <OptionSelector
+          label="Humor del bebé"
+          icon="happy-outline"
+          options={BABY_MOOD_OPTIONS}
+          value={babyMood}
+          onChange={setBabyMood}
+        />
+      </View>
+      
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="Le acosté a dormir"
+          icon="bed-outline"
+          value={laidDownForBed}
+          onChange={setLaidDownForBed}
+        />
+      </View>
+      
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="Se durmió"
+          icon="moon-outline"
+          value={fellAsleepAt}
+          onChange={setFellAsleepAt}
+        />
+      </View>
       
       <View style={styles.wakingsCountContainer}>
         <Text style={styles.inputLabel}>
-          <Ionicons name="notifications-outline" size={16} color={colors.accent.gold} /> # de Despertares
+          <Ionicons name="notifications-outline" size={18} color={colors.accent.gold} /> ¿Cuántas veces despertó?
         </Text>
         <View style={styles.wakingsButtons}>
           {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
@@ -483,23 +390,16 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
         </View>
       </View>
       
-      <TimePicker
-        label="Hora de despertar hoy"
-        icon="sunny-outline"
-        value={morningWakeTime}
-        onChange={setMorningWakeTime}
-      />
-      
       <View style={styles.notesContainer}>
         <Text style={styles.inputLabel}>
-          <Ionicons name="create-outline" size={16} color={colors.accent.gold} /> Notas adicionales
+          <Ionicons name="create-outline" size={18} color={colors.accent.gold} /> Notas para la coach (opcional)
         </Text>
         <TextInput
           style={styles.notesInput}
-          placeholder="Algo que quieras agregar para la coach..."
+          placeholder="Algo importante que quieras compartir..."
           placeholderTextColor={colors.text.muted}
           multiline
-          numberOfLines={3}
+          numberOfLines={4}
           value={notes}
           onChangeText={setNotes}
           textAlignVertical="top"
@@ -509,7 +409,7 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
       <View style={styles.navigationButtons}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => setSection('night')}
+          onPress={() => setSection('naps')}
         >
           <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
           <Text style={styles.backButtonText}>Atrás</Text>
@@ -523,14 +423,15 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
             <ActivityIndicator color={colors.text.primary} />
           ) : (
             <>
-              <Text style={styles.submitButtonText}>Guardar</Text>
-              <Ionicons name="checkmark-circle" size={20} color={colors.text.primary} />
+              <Text style={styles.submitButtonText}>Guardar Bitácora</Text>
+              <Ionicons name="checkmark-circle" size={22} color={colors.text.primary} />
             </>
           )}
         </TouchableOpacity>
       </View>
     </View>
   );
+
 
   const renderCompleteSection = () => (
     <View style={styles.completeContainer}>
@@ -556,17 +457,15 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
 
   const renderSection = () => {
     switch (section) {
-      case 'morning': return renderMorningSection();
+      case 'sleep': return renderSleepSection();
       case 'naps': return renderNapsSection();
-      case 'feeding': return renderFeedingSection();
       case 'night': return renderNightSection();
-      case 'wakings': return renderWakingsSection();
       case 'complete': return renderCompleteSection();
     }
   };
 
   // Progress indicator
-  const sectionOrder: Section[] = ['morning', 'naps', 'feeding', 'night', 'wakings'];
+  const sectionOrder: Section[] = ['sleep', 'naps', 'night'];
   const currentIndex = sectionOrder.indexOf(section);
 
   return (
@@ -614,12 +513,12 @@ const styles = StyleSheet.create({
   },
   progressDot: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: colors.background.elevated,
   },
   progressDotActive: {
-    backgroundColor: colors.accent.gold,
+    backgroundColor: colors.accent.sage,
   },
   scrollView: {
     flex: 1,
@@ -629,9 +528,10 @@ const styles = StyleSheet.create({
   },
   sectionContainer: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   sectionTitle: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.xxl,
     fontWeight: '700',
     color: colors.text.primary,
     marginBottom: spacing.xs,
@@ -639,74 +539,78 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: fontSize.md,
     color: colors.text.secondary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  timePickerContainer: {
+  fieldCard: {
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     marginBottom: spacing.md,
   },
+  timePickerContainer: {
+    marginBottom: spacing.sm,
+  },
   inputLabel: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  timePickerInline: {
+    gap: spacing.lg,
+  },
+  timeInputGroup: {
+    marginBottom: spacing.sm,
+  },
+  timeInputLabel: {
     fontSize: fontSize.sm,
     color: colors.text.secondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  timeButton: {
+  timeButtonsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  timeQuickButton: {
+    minWidth: 56,
+    height: 56,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background.card,
-    padding: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: colors.background.elevated,
     borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  timeButtonText: {
-    fontSize: fontSize.md,
+  timeQuickButtonSelected: {
+    backgroundColor: colors.accent.sage,
+    borderColor: colors.accent.gold,
+  },
+  timeQuickText: {
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  timeQuickTextSelected: {
     color: colors.text.primary,
+    fontWeight: '700',
   },
-  timePickerDropdown: {
-    backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.xs,
-    padding: spacing.md,
-  },
-  timePickerRow: {
+  timeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  timeColumn: {
-    height: 120,
-    width: 60,
-  },
-  timeSeparator: {
-    fontSize: fontSize.xl,
-    color: colors.text.primary,
-    marginHorizontal: spacing.md,
-  },
-  timeOption: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  timeOptionSelected: {
-    backgroundColor: colors.accent.gold,
-    borderRadius: borderRadius.sm,
-  },
-  timeOptionText: {
-    fontSize: fontSize.lg,
-    color: colors.text.secondary,
-  },
-  timeOptionTextSelected: {
-    color: colors.text.inverse,
-    fontWeight: '600',
-  },
-  timeConfirmButton: {
-    backgroundColor: colors.accent.sage,
-    padding: spacing.sm,
+    gap: spacing.sm,
+    backgroundColor: colors.background.elevated,
+    padding: spacing.md,
     borderRadius: borderRadius.md,
-    alignItems: 'center',
     marginTop: spacing.md,
   },
-  timeConfirmText: {
-    color: colors.text.primary,
-    fontWeight: '600',
+  timeDisplayText: {
+    fontSize: fontSize.xxl,
+    fontWeight: '700',
+    color: colors.accent.sage,
   },
   optionSelectorContainer: {
     marginBottom: spacing.md,
@@ -737,28 +641,39 @@ const styles = StyleSheet.create({
   },
   napContainer: {
     backgroundColor: colors.background.card,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
   },
   napHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  napTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   napTitle: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
+    fontSize: fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
+  napOptional: {
+    fontSize: fontSize.xs,
+    color: colors.text.muted,
+    backgroundColor: colors.background.elevated,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
   napContent: {
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.background.elevated,
+    gap: spacing.md,
   },
   durationContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   durationButtons: {
     flexDirection: 'row',
@@ -767,23 +682,28 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   durationButton: {
-    width: 48,
-    height: 48,
+    minWidth: 64,
+    height: 56,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.background.elevated,
     borderRadius: borderRadius.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   durationButtonSelected: {
     backgroundColor: colors.accent.gold,
+    borderColor: colors.accent.sage,
   },
   durationText: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
+    fontWeight: '600',
     color: colors.text.secondary,
   },
   durationTextSelected: {
-    color: colors.text.inverse,
-    fontWeight: '600',
+    color: colors.text.primary,
+    fontWeight: '700',
   },
   wakingsCountContainer: {
     marginBottom: spacing.lg,
@@ -795,53 +715,62 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   wakingButton: {
-    width: 44,
-    height: 44,
+    minWidth: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.background.elevated,
     borderRadius: borderRadius.full,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   wakingButtonSelected: {
     backgroundColor: colors.accent.terracotta,
+    borderColor: colors.accent.gold,
   },
   wakingText: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
     color: colors.text.secondary,
   },
   wakingTextSelected: {
     color: colors.text.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   notesContainer: {
     marginBottom: spacing.lg,
   },
   notesInput: {
-    backgroundColor: colors.background.card,
+    backgroundColor: colors.background.elevated,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     fontSize: fontSize.md,
     color: colors.text.primary,
-    minHeight: 80,
+    minHeight: 100,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   navigationButtons: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.text.muted,
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.background.elevated,
+    minHeight: 56,
   },
   backButtonText: {
     fontSize: fontSize.md,
+    fontWeight: '600',
     color: colors.text.secondary,
   },
   nextButton: {
@@ -851,12 +780,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     backgroundColor: colors.accent.sage,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.lg,
+    minHeight: 56,
+    shadowColor: colors.accent.sage,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   nextButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
+    fontSize: fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
   submitButton: {
@@ -865,13 +800,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.accent.terracotta,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.accent.sage,
+    paddingVertical: spacing.lg,
+    borderRadius: borderRadius.lg,
+    minHeight: 56,
+    shadowColor: colors.accent.sage,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   submitButtonText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
+    fontSize: fontSize.lg,
+    fontWeight: '700',
     color: colors.text.primary,
   },
   completeContainer: {

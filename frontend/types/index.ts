@@ -86,10 +86,27 @@ export interface DailyBitacora {
   // Mañana anterior
   previous_day_wake_time?: string;          // ☀️ Hora de despertar día anterior
 
-  // Siestas
+  // Siestas (objetos anidados - para compatibilidad con código existente)
   nap_1?: NapEntry;
   nap_2?: NapEntry;
   nap_3?: NapEntry;
+
+  // Siestas (columnas planas - como están en la DB)
+  nap_1_laid_down?: string;
+  nap_1_fell_asleep?: string;
+  nap_1_how_fell_asleep?: string;
+  nap_1_woke_up?: string;
+  nap_1_duration_minutes?: number;
+  nap_2_laid_down?: string;
+  nap_2_fell_asleep?: string;
+  nap_2_how_fell_asleep?: string;
+  nap_2_woke_up?: string;
+  nap_2_duration_minutes?: number;
+  nap_3_laid_down?: string;
+  nap_3_fell_asleep?: string;
+  nap_3_how_fell_asleep?: string;
+  nap_3_woke_up?: string;
+  nap_3_duration_minutes?: number;
 
   // Alimentación
   how_baby_ate?: string;                    // 🥑🥛 Cómo comió a lo largo del día
@@ -104,7 +121,7 @@ export interface DailyBitacora {
 
   // Despertares nocturnos
   number_of_wakings?: number;               // # de Despertares
-  night_wakings?: NightWaking[];            // Detalles de cada despertar
+  night_wakings?: NightWaking[];            // Detalles de cada despertar (JSONB)
 
   // Mañana siguiente
   morning_wake_time?: string;               // ☀️ Hora de despertar hoy por la mañana

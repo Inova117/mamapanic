@@ -197,11 +197,11 @@ export default function CoachBitacorasScreen() {
                             </Section>
 
                             {/* Naps */}
-                            {(selected.nap_1 || selected.nap_2 || selected.nap_3) && (
+                            {(selected.nap_1_duration_minutes || selected.nap_2_duration_minutes || selected.nap_3_duration_minutes) && (
                                 <Section label="Siestas">
-                                    {selected.nap_1?.duration_minutes && row('Siesta 1', `${selected.nap_1.duration_minutes} min`)}
-                                    {selected.nap_2?.duration_minutes && row('Siesta 2', `${selected.nap_2.duration_minutes} min`)}
-                                    {selected.nap_3?.duration_minutes && row('Siesta 3', `${selected.nap_3.duration_minutes} min`)}
+                                    {selected.nap_1_duration_minutes && row('Siesta 1', `${selected.nap_1_duration_minutes} min`)}
+                                    {selected.nap_2_duration_minutes && row('Siesta 2', `${selected.nap_2_duration_minutes} min`)}
+                                    {selected.nap_3_duration_minutes && row('Siesta 3', `${selected.nap_3_duration_minutes} min`)}
                                 </Section>
                             )}
 
