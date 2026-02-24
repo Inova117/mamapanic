@@ -250,6 +250,10 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<DailyBitacora | null>(null);
   
+  // Animation refs for success screen
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
   // Form state
   const [previousDayWakeTime, setPreviousDayWakeTime] = useState<string>();
   const [nap1, setNap1] = useState<NapEntry>({});
@@ -266,6 +270,27 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   const [nightWakings, setNightWakings] = useState<NightWaking[]>([]);
   const [morningWakeTime, setMorningWakeTime] = useState<string>();
   const [notes, setNotes] = useState('');
+
+  // Trigger animation when section changes to 'complete'
+  useEffect(() => {
+    if (section === 'complete') {
+      scaleAnim.setValue(0);
+      fadeAnim.setValue(0);
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [section]);
 
   const handleSubmit = async () => {
     console.log('🔵 handleSubmit called');
@@ -502,59 +527,38 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   );
 
 
-  const renderCompleteSection = () => {
-    const scaleAnim = useRef(new Animated.Value(0)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.sequence([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, []);
-
-    return (
-      <View style={styles.completeContainer}>
-        <Animated.View style={[styles.successIconContainer, { transform: [{ scale: scaleAnim }] }]}>
-          <Ionicons name="checkmark-circle" size={100} color={colors.accent.sage} />
-        </Animated.View>
-        <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }}>
-          <Text style={styles.completeTitle}>¡Bitácora guardada con éxito!</Text>
-          <Text style={styles.completeSubtitle}>Día #{result?.day_number}</Text>
-          <Text style={styles.completeMessage}>
-            Tu registro ha sido enviado a tu coach y está disponible en tu historial.
-          </Text>
-          
-          {result?.ai_summary && (
-            <View style={styles.aiSummaryContainer}>
-              <View style={styles.aiSummaryHeader}>
-                <Ionicons name="sparkles" size={20} color={colors.accent.gold} />
-                <Text style={styles.aiSummaryLabel}>Resumen IA para tu coach</Text>
-              </View>
-              <Text style={styles.aiSummaryText}>{result.ai_summary}</Text>
+  const renderCompleteSection = () => (
+    <View style={styles.completeContainer}>
+      <Animated.View style={[styles.successIconContainer, { transform: [{ scale: scaleAnim }] }]}>
+        <Ionicons name="checkmark-circle" size={100} color={colors.accent.sage} />
+      </Animated.View>
+      <Animated.View style={{ opacity: fadeAnim, alignItems: 'center', width: '100%' }}>
+        <Text style={styles.completeTitle}>¡Bitácora guardada con éxito!</Text>
+        <Text style={styles.completeSubtitle}>Día #{result?.day_number}</Text>
+        <Text style={styles.completeMessage}>
+          Tu registro ha sido enviado a tu coach y está disponible en tu historial.
+        </Text>
+        
+        {result?.ai_summary && (
+          <View style={styles.aiSummaryContainer}>
+            <View style={styles.aiSummaryHeader}>
+              <Ionicons name="sparkles" size={20} color={colors.accent.gold} />
+              <Text style={styles.aiSummaryLabel}>Resumen IA para tu coach</Text>
             </View>
-          )}
-          
-          <TouchableOpacity 
-            style={styles.doneButton}
-            onPress={onClose}
-          >
-            <Ionicons name="checkmark" size={20} color={colors.text.primary} />
-            <Text style={styles.doneButtonText}>Listo</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-    );
-  };
+            <Text style={styles.aiSummaryText}>{result.ai_summary}</Text>
+          </View>
+        )}
+        
+        <TouchableOpacity 
+          style={styles.doneButton}
+          onPress={onClose}
+        >
+          <Ionicons name="checkmark" size={20} color={colors.text.primary} />
+          <Text style={styles.doneButtonText}>Listo</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
 
   const renderSection = () => {
     switch (section) {
