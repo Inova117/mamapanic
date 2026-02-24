@@ -247,32 +247,49 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
   }
 
   // Map nested objects to flat columns to match `bitacoras` schema
-  const dbPayload = { ...bitacoraData };
   console.log('🔄 Mapping data to DB schema...');
+  
+  const dbPayload: any = {};
 
+  // Copy only the flat fields that exist in the DB schema
+  if (bitacoraData.date) dbPayload.date = bitacoraData.date;
+  if (bitacoraData.previous_day_wake_time) dbPayload.previous_day_wake_time = bitacoraData.previous_day_wake_time;
+  if (bitacoraData.how_baby_ate) dbPayload.how_baby_ate = bitacoraData.how_baby_ate;
+  if (bitacoraData.relaxing_routine_start) dbPayload.relaxing_routine_start = bitacoraData.relaxing_routine_start;
+  if (bitacoraData.baby_mood) dbPayload.baby_mood = bitacoraData.baby_mood;
+  if (bitacoraData.last_feeding_time) dbPayload.last_feeding_time = bitacoraData.last_feeding_time;
+  if (bitacoraData.laid_down_for_bed) dbPayload.laid_down_for_bed = bitacoraData.laid_down_for_bed;
+  if (bitacoraData.fell_asleep_at) dbPayload.fell_asleep_at = bitacoraData.fell_asleep_at;
+  if (bitacoraData.time_to_fall_asleep_minutes) dbPayload.time_to_fall_asleep_minutes = bitacoraData.time_to_fall_asleep_minutes;
+  if (bitacoraData.number_of_wakings !== undefined) dbPayload.number_of_wakings = bitacoraData.number_of_wakings;
+  if (bitacoraData.morning_wake_time) dbPayload.morning_wake_time = bitacoraData.morning_wake_time;
+  if (bitacoraData.notes) dbPayload.notes = bitacoraData.notes;
+
+  // Map nap_1 nested object to flat columns
   if (bitacoraData.nap_1) {
-    dbPayload.nap_1_duration_minutes = bitacoraData.nap_1.duration_minutes;
-    dbPayload.nap_1_laid_down = bitacoraData.nap_1.laid_down_time;
-    dbPayload.nap_1_fell_asleep = bitacoraData.nap_1.fell_asleep_time;
-    dbPayload.nap_1_how_fell_asleep = bitacoraData.nap_1.how_fell_asleep;
-    dbPayload.nap_1_woke_up = bitacoraData.nap_1.woke_up_time;
-    delete dbPayload.nap_1;
+    if (bitacoraData.nap_1.duration_minutes) dbPayload.nap_1_duration_minutes = bitacoraData.nap_1.duration_minutes;
+    if (bitacoraData.nap_1.laid_down_time) dbPayload.nap_1_laid_down = bitacoraData.nap_1.laid_down_time;
+    if (bitacoraData.nap_1.fell_asleep_time) dbPayload.nap_1_fell_asleep = bitacoraData.nap_1.fell_asleep_time;
+    if (bitacoraData.nap_1.how_fell_asleep) dbPayload.nap_1_how_fell_asleep = bitacoraData.nap_1.how_fell_asleep;
+    if (bitacoraData.nap_1.woke_up_time) dbPayload.nap_1_woke_up = bitacoraData.nap_1.woke_up_time;
   }
+
+  // Map nap_2 nested object to flat columns
   if (bitacoraData.nap_2) {
-    dbPayload.nap_2_duration_minutes = bitacoraData.nap_2.duration_minutes;
-    dbPayload.nap_2_laid_down = bitacoraData.nap_2.laid_down_time;
-    dbPayload.nap_2_fell_asleep = bitacoraData.nap_2.fell_asleep_time;
-    dbPayload.nap_2_how_fell_asleep = bitacoraData.nap_2.how_fell_asleep;
-    dbPayload.nap_2_woke_up = bitacoraData.nap_2.woke_up_time;
-    delete dbPayload.nap_2;
+    if (bitacoraData.nap_2.duration_minutes) dbPayload.nap_2_duration_minutes = bitacoraData.nap_2.duration_minutes;
+    if (bitacoraData.nap_2.laid_down_time) dbPayload.nap_2_laid_down = bitacoraData.nap_2.laid_down_time;
+    if (bitacoraData.nap_2.fell_asleep_time) dbPayload.nap_2_fell_asleep = bitacoraData.nap_2.fell_asleep_time;
+    if (bitacoraData.nap_2.how_fell_asleep) dbPayload.nap_2_how_fell_asleep = bitacoraData.nap_2.how_fell_asleep;
+    if (bitacoraData.nap_2.woke_up_time) dbPayload.nap_2_woke_up = bitacoraData.nap_2.woke_up_time;
   }
+
+  // Map nap_3 nested object to flat columns
   if (bitacoraData.nap_3) {
-    dbPayload.nap_3_duration_minutes = bitacoraData.nap_3.duration_minutes;
-    dbPayload.nap_3_laid_down = bitacoraData.nap_3.laid_down_time;
-    dbPayload.nap_3_fell_asleep = bitacoraData.nap_3.fell_asleep_time;
-    dbPayload.nap_3_how_fell_asleep = bitacoraData.nap_3.how_fell_asleep;
-    dbPayload.nap_3_woke_up = bitacoraData.nap_3.woke_up_time;
-    delete dbPayload.nap_3;
+    if (bitacoraData.nap_3.duration_minutes) dbPayload.nap_3_duration_minutes = bitacoraData.nap_3.duration_minutes;
+    if (bitacoraData.nap_3.laid_down_time) dbPayload.nap_3_laid_down = bitacoraData.nap_3.laid_down_time;
+    if (bitacoraData.nap_3.fell_asleep_time) dbPayload.nap_3_fell_asleep = bitacoraData.nap_3.fell_asleep_time;
+    if (bitacoraData.nap_3.how_fell_asleep) dbPayload.nap_3_how_fell_asleep = bitacoraData.nap_3.how_fell_asleep;
+    if (bitacoraData.nap_3.woke_up_time) dbPayload.nap_3_woke_up = bitacoraData.nap_3.woke_up_time;
   }
 
   // Keep night_wakings as JSONB array
