@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius, touchTarget } from '../theme/theme';
@@ -67,6 +68,14 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
   const [hour, setHour] = useState(initial.hour);
   const [minute, setMinute] = useState(initial.minute);
   const [period, setPeriod] = useState(initial.period);
+
+  // Sync internal state when value prop changes
+  useEffect(() => {
+    const updated = convert24to12(value);
+    setHour(updated.hour);
+    setMinute(updated.minute);
+    setPeriod(updated.period);
+  }, [value]);
 
   const handleHourChange = (h: string) => {
     setHour(h);
@@ -259,6 +268,7 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   const [notes, setNotes] = useState('');
 
   const handleSubmit = async () => {
+    console.log('🔵 handleSubmit called');
     setIsLoading(true);
     try {
       const bitacora: DailyBitacoraCreate = {
@@ -280,14 +290,26 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
         notes: notes || undefined,
       };
       
+      console.log('📝 Bitacora data:', JSON.stringify(bitacora, null, 2));
+      console.log('🚀 Calling createBitacora...');
+      
       const saved = await createBitacora(bitacora);
+      
+      console.log('✅ Bitacora saved:', saved);
       setResult(saved);
       setSection('complete');
       onComplete?.(saved);
     } catch (error) {
-      console.error('Error saving bitacora:', error);
+      console.error('❌ Error saving bitacora:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      Alert.alert(
+        'Error al guardar',
+        error instanceof Error ? error.message : 'Error desconocido. Por favor intenta de nuevo.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsLoading(false);
+      console.log('🔵 handleSubmit finished, isLoading:', false);
     }
   };
 
@@ -459,8 +481,12 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.submitButton}
-          onPress={handleSubmit}
+          onPress={() => {
+            console.log('🔴 BUTTON PRESSED - onPress triggered');
+            handleSubmit();
+          }}
           disabled={isLoading}
+          activeOpacity={0.7}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.text.primary} />

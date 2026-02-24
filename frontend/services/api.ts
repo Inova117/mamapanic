@@ -212,10 +212,16 @@ export const getCommunityPresence = async (): Promise<{
 // ==================== BITÁCORA (Sleep Coach Log) ====================
 
 export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
+  console.log('📌 createBitacora started');
+  
   // Get current user
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
-  if (!user) throw new Error('Not authenticated');
+  if (!user) {
+    console.error('❌ Not authenticated');
+    throw new Error('Not authenticated');
+  }
+  console.log('✅ User authenticated:', user.id);
 
   // Get day number (count existing bitacoras)
   const { count } = await supabase
@@ -224,12 +230,25 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
     .eq('user_id', user.id);
 
   const dayNumber = (count || 0) + 1;
+  console.log('📊 Day number:', dayNumber);
 
-  // Generate AI summary
-  const aiSummary = await getBitacoraSummary(bitacoraData);
+  // Generate AI summary with timeout
+  let aiSummary = 'Registro guardado exitosamente.';
+  try {
+    console.log('🤖 Generating AI summary...');
+    const summaryPromise = getBitacoraSummary(bitacoraData);
+    const timeoutPromise = new Promise<string>((_, reject) => 
+      setTimeout(() => reject(new Error('AI summary timeout')), 5000)
+    );
+    aiSummary = await Promise.race([summaryPromise, timeoutPromise]);
+    console.log('✅ AI summary generated');
+  } catch (error) {
+    console.warn('⚠️ AI summary failed, using default:', error);
+  }
 
   // Map nested objects to flat columns to match `bitacoras` schema
   const dbPayload = { ...bitacoraData };
+  console.log('🔄 Mapping data to DB schema...');
 
   if (bitacoraData.nap_1) {
     dbPayload.nap_1_duration_minutes = bitacoraData.nap_1.duration_minutes;
@@ -261,6 +280,14 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
     dbPayload.night_wakings = bitacoraData.night_wakings;
   }
 
+  console.log('💾 Preparing to insert into DB...');
+  console.log('📦 Payload:', JSON.stringify({
+    ...dbPayload,
+    user_id: user.id,
+    day_number: dayNumber,
+    ai_summary: aiSummary,
+  }, null, 2));
+
   // Insert bitacora
   const { data, error } = await supabase
     .from('bitacoras')
@@ -273,7 +300,12 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Supabase insert error:', error);
+    throw error;
+  }
+  
+  console.log('✅ Bitacora inserted successfully:', data);
   return data;
 };
 
