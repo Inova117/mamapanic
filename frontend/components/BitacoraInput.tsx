@@ -8,7 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius, touchTarget } from '../theme/theme';
@@ -72,6 +73,7 @@ export const BitacoraInput: React.FC<BitacoraInputProps> = ({ onComplete }) => {
     try {
       const checkIn = await createCheckIn({
         mood,
+        sleep_hours: sleepHours ?? undefined,
         baby_wakeups: wakeups ?? undefined,
         brain_dump: brainDump || undefined,
       });
@@ -79,7 +81,13 @@ export const BitacoraInput: React.FC<BitacoraInputProps> = ({ onComplete }) => {
       setStep('complete');
       onComplete?.(checkIn);
     } catch (error) {
-      console.error('Error creating check-in:', error);
+      // Don't lose the mother's input silently — tell her and keep the form so
+      // she can retry (her brain-dump/venting stays intact).
+      Alert.alert(
+        'No se pudo guardar',
+        error instanceof Error ? error.message : 'Revisa tu conexión e intenta de nuevo.',
+        [{ text: 'Reintentar' }]
+      );
     } finally {
       setIsLoading(false);
     }

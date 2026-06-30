@@ -52,19 +52,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Initialize auth
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Get initial session — AWAIT the role so we don't finish loading (and let
+    // the tabs render) before we know if this is a coach. Prevents the wrong-tab
+    // flicker / momentary "Acceso solo para coach" lockout.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchUserRole(session.user.id);
+        await fetchUserRole(session.user.id);
       }
       setIsLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         // Don't redirect away from reset-password when the recovery token is processed
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
@@ -77,7 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          fetchUserRole(session.user.id);
+          await fetchUserRole(session.user.id);
         } else {
           setUserRole(null);
         }

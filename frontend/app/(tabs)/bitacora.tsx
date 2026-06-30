@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import SleepCoachBitacora from '../../components/SleepCoachBitacora';
 import { getBitacoras, getTodayBitacora } from '../../services/api';
 import { DailyBitacora } from '../../types';
+import { safeDate } from '../../utils/date';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -43,6 +44,23 @@ export default function BitacoraScreen() {
   const handleClose = () => {
     setShowInput(false);
     fetchData();
+  };
+
+  // Today is one entry per day. If one already exists, re-submitting would
+  // REPLACE it (the form opens blank), so confirm before overwriting.
+  const handleNewBitacora = () => {
+    if (todayBitacora) {
+      Alert.alert(
+        'Ya registraste hoy',
+        'Si continúas, el registro de hoy se reemplazará con los nuevos datos.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Reemplazar', style: 'destructive', onPress: () => setShowInput(true) },
+        ]
+      );
+    } else {
+      setShowInput(true);
+    }
   };
 
   if (showInput) {
@@ -163,7 +181,9 @@ export default function BitacoraScreen() {
                 <View style={styles.historyHeader}>
                   <Text style={styles.historyDay}>Día #{bitacora.day_number}</Text>
                   <Text style={styles.historyDate}>
-                    {format(new Date(bitacora.date), "d 'de' MMMM", { locale: es })}
+                    {safeDate(bitacora.date)
+                      ? format(safeDate(bitacora.date)!, "d 'de' MMMM", { locale: es })
+                      : ''}
                   </Text>
                 </View>
                 <View style={styles.historyStats}>
@@ -190,8 +210,10 @@ export default function BitacoraScreen() {
       <View style={styles.fabContainer}>
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => setShowInput(true)}
+          onPress={handleNewBitacora}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={todayBitacora ? 'Reemplazar la bitácora de hoy' : 'Registrar la bitácora de hoy'}
         >
           <Ionicons name="add" size={28} color={colors.text.primary} />
           <Text style={styles.fabText}>

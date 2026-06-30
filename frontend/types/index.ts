@@ -14,6 +14,7 @@ export interface DailyCheckIn {
   mood: number; // 1=sad, 2=neutral, 3=happy
   sleep_start?: string;
   sleep_end?: string;
+  sleep_hours?: number;
   baby_wakeups?: number;
   brain_dump?: string;
   ai_response?: string;

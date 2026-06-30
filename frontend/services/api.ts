@@ -1,6 +1,7 @@
 import { supabase, CheckIn, ChatMessage, ValidationCard, Bitacora, Profile, DirectMessage } from '../lib/supabase';
 import { getChatResponse, getValidationResponse, getBitacoraSummary } from './groq';
 import { DebugLogger } from '../utils/debugLogger';
+import { localDateString, localDayRange } from '../utils/date';
 
 // ==================== VALIDATION CARDS ====================
 
@@ -37,19 +38,20 @@ export const createCheckIn = async (checkInData: {
   mood: 1 | 2 | 3;
   sleep_start?: string;
   sleep_end?: string;
+  sleep_hours?: number;
   baby_wakeups?: number;
   brain_dump?: string;
 }): Promise<CheckIn> => {
+  // Verify auth first (don't spend a Groq call if we can't save anyway).
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) throw new Error('Not authenticated');
+
   // Get AI validation response
   const aiResponse = await getValidationResponse(
     checkInData.mood,
     checkInData.brain_dump
   );
-
-  // Get current user
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) throw new Error('Not authenticated');
 
   // Insert check-in
   const { data, error } = await supabase
@@ -78,14 +80,18 @@ export const getCheckIns = async (limit: number = 7): Promise<CheckIn[]> => {
 };
 
 export const getTodayCheckIn = async (): Promise<CheckIn | null> => {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return null;
 
+  // Use LOCAL day bounds so "today" matches the mother's calendar day, not UTC.
+  const { start, end } = localDayRange();
   const { data, error } = await supabase
     .from('checkins')
     .select('*')
-    .gte('created_at', today)
-    .lt('created_at', tomorrow)
+    .eq('user_id', user.id)
+    .gte('created_at', start)
+    .lt('created_at', end)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -107,6 +113,17 @@ export const sendChatMessage = async (
   if (!user) throw new Error('Not authenticated');
 
 
+  // Fetch prior context BEFORE inserting the new message (so it isn't sent
+  // twice) — the most recent 10 messages, returned in chronological order.
+  const { data: recent, error: historyError } = await supabase
+    .from('chat_messages')
+    .select('role, content')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (historyError) DebugLogger.warn('[Chat] History fetch failed:', historyError.message);
+  const history = (recent || []).slice().reverse();
+
   // Save user message (non-blocking: ignore insert errors)
   const { error: userInsertError } = await supabase.from('chat_messages').insert([{
     session_id: sessionId,
@@ -116,17 +133,8 @@ export const sendChatMessage = async (
   }]);
   if (userInsertError) DebugLogger.warn('[Chat] User msg insert failed:', userInsertError.message);
 
-  // Get conversation history
-  const { data: history, error: historyError } = await supabase
-    .from('chat_messages')
-    .select('role, content')
-    .eq('session_id', sessionId)
-    .order('created_at', { ascending: true })
-    .limit(10);
-  if (historyError) DebugLogger.warn('[Chat] History fetch failed:', historyError.message);
-
   DebugLogger.info('[Chat] Calling getChatResponse...');
-  const aiResponse = await getChatResponse(content, history || []);
+  const aiResponse = await getChatResponse(content, history);
   DebugLogger.info('[Chat] Got response, length:', aiResponse.length);
 
   // Save assistant message and return it
@@ -212,47 +220,37 @@ export const getCommunityPresence = async (): Promise<{
 // ==================== BITÁCORA (Sleep Coach Log) ====================
 
 export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
-  console.log('📌 createBitacora started');
-  
-  // Get current user
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
-  if (!user) {
-    console.error('❌ Not authenticated');
-    throw new Error('Not authenticated');
-  }
-  console.log('✅ User authenticated:', user.id);
+  if (!user) throw new Error('Not authenticated');
 
-  // Get day number (count existing bitacoras)
-  const { count } = await supabase
+  // Local calendar date (not UTC) so "today" matches the mother's day.
+  const dateStr: string = bitacoraData.date || localDateString();
+
+  // One entry per (user, date). Reuse the day_number when editing an existing
+  // day; otherwise assign the next one. UNIQUE(user_id, date) + the upsert
+  // below guarantee no duplicate rows per day (root-cause fix, not a band-aid).
+  const { data: existing } = await supabase
     .from('bitacoras')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id);
+    .select('day_number')
+    .eq('user_id', user.id)
+    .eq('date', dateStr)
+    .maybeSingle();
 
-  const dayNumber = (count || 0) + 1;
-  console.log('📊 Day number:', dayNumber);
-
-  // Generate AI summary with timeout
-  let aiSummary = 'Registro guardado exitosamente.';
-  try {
-    console.log('🤖 Generating AI summary...');
-    const summaryPromise = getBitacoraSummary(bitacoraData);
-    const timeoutPromise = new Promise<string>((_, reject) => 
-      setTimeout(() => reject(new Error('AI summary timeout')), 5000)
-    );
-    aiSummary = await Promise.race([summaryPromise, timeoutPromise]);
-    console.log('✅ AI summary generated');
-  } catch (error) {
-    console.warn('⚠️ AI summary failed, using default:', error);
+  let dayNumber: number;
+  if (existing) {
+    dayNumber = existing.day_number;
+  } else {
+    const { count } = await supabase
+      .from('bitacoras')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    dayNumber = (count || 0) + 1;
   }
 
-  // Map nested objects to flat columns to match `bitacoras` schema
-  console.log('🔄 Mapping data to DB schema...');
-  
-  const dbPayload: any = {};
-
-  // Copy only the flat fields that exist in the DB schema
-  if (bitacoraData.date) dbPayload.date = bitacoraData.date;
+  // Map the nested form shape onto the flat DB columns. `!= null` keeps a
+  // legitimate 0 (e.g. 0 night wakings) instead of dropping it.
+  const dbPayload: any = { date: dateStr };
   if (bitacoraData.previous_day_wake_time) dbPayload.previous_day_wake_time = bitacoraData.previous_day_wake_time;
   if (bitacoraData.how_baby_ate) dbPayload.how_baby_ate = bitacoraData.how_baby_ate;
   if (bitacoraData.relaxing_routine_start) dbPayload.relaxing_routine_start = bitacoraData.relaxing_routine_start;
@@ -260,69 +258,51 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
   if (bitacoraData.last_feeding_time) dbPayload.last_feeding_time = bitacoraData.last_feeding_time;
   if (bitacoraData.laid_down_for_bed) dbPayload.laid_down_for_bed = bitacoraData.laid_down_for_bed;
   if (bitacoraData.fell_asleep_at) dbPayload.fell_asleep_at = bitacoraData.fell_asleep_at;
-  if (bitacoraData.time_to_fall_asleep_minutes) dbPayload.time_to_fall_asleep_minutes = bitacoraData.time_to_fall_asleep_minutes;
-  if (bitacoraData.number_of_wakings !== undefined) dbPayload.number_of_wakings = bitacoraData.number_of_wakings;
+  if (bitacoraData.time_to_fall_asleep_minutes != null) dbPayload.time_to_fall_asleep_minutes = bitacoraData.time_to_fall_asleep_minutes;
+  if (bitacoraData.number_of_wakings != null) dbPayload.number_of_wakings = bitacoraData.number_of_wakings;
   if (bitacoraData.morning_wake_time) dbPayload.morning_wake_time = bitacoraData.morning_wake_time;
   if (bitacoraData.notes) dbPayload.notes = bitacoraData.notes;
 
-  // Map nap_1 nested object to flat columns
-  if (bitacoraData.nap_1) {
-    if (bitacoraData.nap_1.duration_minutes) dbPayload.nap_1_duration_minutes = bitacoraData.nap_1.duration_minutes;
-    if (bitacoraData.nap_1.laid_down_time) dbPayload.nap_1_laid_down = bitacoraData.nap_1.laid_down_time;
-    if (bitacoraData.nap_1.fell_asleep_time) dbPayload.nap_1_fell_asleep = bitacoraData.nap_1.fell_asleep_time;
-    if (bitacoraData.nap_1.how_fell_asleep) dbPayload.nap_1_how_fell_asleep = bitacoraData.nap_1.how_fell_asleep;
-    if (bitacoraData.nap_1.woke_up_time) dbPayload.nap_1_woke_up = bitacoraData.nap_1.woke_up_time;
+  const mapNap = (nap: any, n: number) => {
+    if (!nap) return;
+    if (nap.duration_minutes != null) dbPayload[`nap_${n}_duration_minutes`] = nap.duration_minutes;
+    if (nap.laid_down_time) dbPayload[`nap_${n}_laid_down`] = nap.laid_down_time;
+    if (nap.fell_asleep_time) dbPayload[`nap_${n}_fell_asleep`] = nap.fell_asleep_time;
+    if (nap.how_fell_asleep) dbPayload[`nap_${n}_how_fell_asleep`] = nap.how_fell_asleep;
+    if (nap.woke_up_time) dbPayload[`nap_${n}_woke_up`] = nap.woke_up_time;
+  };
+  mapNap(bitacoraData.nap_1, 1);
+  mapNap(bitacoraData.nap_2, 2);
+  mapNap(bitacoraData.nap_3, 3);
+
+  if (bitacoraData.night_wakings) dbPayload.night_wakings = bitacoraData.night_wakings;
+
+  // Generate AI summary from the FLAT payload (getBitacoraSummary reads flat
+  // column names), with a 5s timeout — never block the save on Groq.
+  let aiSummary = 'Registro guardado exitosamente.';
+  try {
+    const summaryPromise = getBitacoraSummary(dbPayload);
+    const timeoutPromise = new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error('AI summary timeout')), 5000)
+    );
+    aiSummary = await Promise.race([summaryPromise, timeoutPromise]);
+  } catch {
+    // keep the default summary
   }
 
-  // Map nap_2 nested object to flat columns
-  if (bitacoraData.nap_2) {
-    if (bitacoraData.nap_2.duration_minutes) dbPayload.nap_2_duration_minutes = bitacoraData.nap_2.duration_minutes;
-    if (bitacoraData.nap_2.laid_down_time) dbPayload.nap_2_laid_down = bitacoraData.nap_2.laid_down_time;
-    if (bitacoraData.nap_2.fell_asleep_time) dbPayload.nap_2_fell_asleep = bitacoraData.nap_2.fell_asleep_time;
-    if (bitacoraData.nap_2.how_fell_asleep) dbPayload.nap_2_how_fell_asleep = bitacoraData.nap_2.how_fell_asleep;
-    if (bitacoraData.nap_2.woke_up_time) dbPayload.nap_2_woke_up = bitacoraData.nap_2.woke_up_time;
-  }
-
-  // Map nap_3 nested object to flat columns
-  if (bitacoraData.nap_3) {
-    if (bitacoraData.nap_3.duration_minutes) dbPayload.nap_3_duration_minutes = bitacoraData.nap_3.duration_minutes;
-    if (bitacoraData.nap_3.laid_down_time) dbPayload.nap_3_laid_down = bitacoraData.nap_3.laid_down_time;
-    if (bitacoraData.nap_3.fell_asleep_time) dbPayload.nap_3_fell_asleep = bitacoraData.nap_3.fell_asleep_time;
-    if (bitacoraData.nap_3.how_fell_asleep) dbPayload.nap_3_how_fell_asleep = bitacoraData.nap_3.how_fell_asleep;
-    if (bitacoraData.nap_3.woke_up_time) dbPayload.nap_3_woke_up = bitacoraData.nap_3.woke_up_time;
-  }
-
-  // Keep night_wakings as JSONB array
-  if (bitacoraData.night_wakings) {
-    dbPayload.night_wakings = bitacoraData.night_wakings;
-  }
-
-  console.log('💾 Preparing to insert into DB...');
-  console.log('📦 Payload:', JSON.stringify({
-    ...dbPayload,
-    user_id: user.id,
-    day_number: dayNumber,
-    ai_summary: aiSummary,
-  }, null, 2));
-
-  // Insert bitacora
   const { data, error } = await supabase
     .from('bitacoras')
-    .insert([{
-      ...dbPayload,
-      user_id: user.id,
-      day_number: dayNumber,
-      ai_summary: aiSummary,
-    }])
+    .upsert(
+      [{ ...dbPayload, user_id: user.id, day_number: dayNumber, ai_summary: aiSummary }],
+      { onConflict: 'user_id,date' }
+    )
     .select()
     .single();
 
   if (error) {
-    console.error('❌ Supabase insert error:', error);
+    DebugLogger.error('[Bitacora] upsert failed:', error.message);
     throw error;
   }
-  
-  console.log('✅ Bitacora inserted successfully:', data);
   return data;
 };
 
@@ -338,11 +318,17 @@ export const getBitacoras = async (limit: number = 30): Promise<Bitacora[]> => {
 };
 
 export const getTodayBitacora = async (): Promise<Bitacora | null> => {
-  const today = new Date().toISOString().split('T')[0];
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) return null;
 
+  // Local date + explicit user scope. With UNIQUE(user_id, date) there is at
+  // most one row, so the previous order+limit band-aid is no longer needed.
+  const today = localDateString();
   const { data, error } = await supabase
     .from('bitacoras')
     .select('*')
+    .eq('user_id', user.id)
     .eq('date', today)
     .maybeSingle();
 
@@ -386,9 +372,10 @@ export const getBitacoraById = async (id: string): Promise<Bitacora> => {
  * Get the assigned coach or the first available coach
  */
 export async function getCoach(): Promise<Profile | null> {
+  // Only the safe public columns — never expose the coach's email to clients.
   const { data: coach, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, name, picture, role')
     .eq('role', 'coach')
     .limit(1)
     .maybeSingle();
@@ -398,7 +385,8 @@ export async function getCoach(): Promise<Profile | null> {
     return null;
   }
 
-  return coach;
+  // Intentionally a partial Profile (no email/timestamps) — safe public subset.
+  return (coach as Profile | null);
 }
 
 /**
@@ -457,6 +445,50 @@ export async function sendDirectMessage(receiverId: string, content: string): Pr
 
   DebugLogger.info('[DM] Message sent OK, id:', data.id.substring(0, 8));
   return data;
+}
+
+/**
+ * Mark every unread message FROM `otherUserId` TO the current user as read.
+ * (Clears the coach's unread badge, which previously grew forever.)
+ */
+export async function markMessagesRead(otherUserId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user || !otherUserId) return;
+
+  const { error } = await supabase
+    .from('direct_messages')
+    .update({ read: true })
+    .eq('receiver_id', user.id)
+    .eq('sender_id', otherUserId)
+    .eq('read', false);
+
+  if (error) DebugLogger.warn('[DM] markMessagesRead failed:', error.message);
+}
+
+/**
+ * Permanently delete the current user's account and all their data.
+ * Calls the `delete-account` Edge Function (which uses the service role).
+ */
+export async function deleteAccount(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('No hay sesión activa');
+
+  const url = `${process.env.EXPO_PUBLIC_SUPABASE_URL || ''}/functions/v1/delete-account`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`No se pudo eliminar la cuenta (${resp.status}): ${t.slice(0, 150)}`);
+  }
 }
 
 /**

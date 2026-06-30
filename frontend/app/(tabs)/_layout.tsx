@@ -166,8 +166,6 @@ export default function TabLayout() {
       <Tabs.Screen name="coach-ai" options={{ href: null }} />
       <Tabs.Screen name="clients" options={{ href: null }} />
       <Tabs.Screen name="coach-bitacoras" options={{ href: null }} />
-      <Tabs.Screen name="clients" options={{ href: null }} />
-      <Tabs.Screen name="coach-ai" options={{ href: null }} />
     </Tabs>
   );
 }

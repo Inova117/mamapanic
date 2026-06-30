@@ -138,6 +138,8 @@ export const CrisisModeScreen: React.FC = () => {
         style={styles.panicButton}
         onPress={handlePanicPress}
         activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Botón de pánico. Abre un ejercicio de respiración para calmarte."
       >
         <View style={styles.panicButtonInner}>
           <Ionicons name="pulse" size={32} color={colors.text.primary} />
@@ -152,6 +154,7 @@ export const CrisisModeScreen: React.FC = () => {
         animationType="fade"
         transparent={false}
         statusBarTranslucent
+        onRequestClose={handleClose}
       >
         <SafeAreaView style={styles.modalContainer}>
           {renderPhaseContent()}

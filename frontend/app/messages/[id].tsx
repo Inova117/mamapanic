@@ -16,7 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { DirectMessage } from '../../types';
-import { getDirectMessages, sendDirectMessage } from '../../services/api';
+import { getDirectMessages, sendDirectMessage, markMessagesRead } from '../../services/api';
 import { InputValidator } from '../../utils/validator';
 
 export default function CoachClientChatScreen() {
@@ -51,7 +51,7 @@ export default function CoachClientChatScreen() {
                 .from('profiles')
                 .select('name')
                 .eq('id', clientId)
-                .single();
+                .maybeSingle();
             if (data?.name) {
                 setClientName(data.name);
             }
@@ -69,6 +69,8 @@ export default function CoachClientChatScreen() {
                 (m) => m.sender_id === clientId || m.receiver_id === clientId
             );
             setMessages(clientMsgs);
+            // Mark the client's messages as read so the unread badge clears.
+            markMessagesRead(clientId as string);
         } catch (error) {
             console.error('Error loading direct messages:', error);
         } finally {

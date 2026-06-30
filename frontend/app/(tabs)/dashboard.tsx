@@ -8,18 +8,15 @@ import {
   ActivityIndicator,
   Image,
   Modal,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '../../lib/supabase';
-
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+import { safeDate } from '../../utils/date';
 
 interface Client {
   user_id: string;
@@ -60,13 +57,6 @@ export default function DashboardScreen() {
   const [loadingBitacoras, setLoadingBitacoras] = useState(false);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
-
-  const getAuthHeaders = async () => {
-    const token = Platform.OS === 'web'
-      ? localStorage.getItem('session_token')
-      : null;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
 
   const fetchClients = async () => {
     setIsLoading(true);
@@ -124,10 +114,17 @@ export default function DashboardScreen() {
   const fetchClientBitacoras = async (userId: string) => {
     setLoadingBitacoras(true);
     try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/api/coach/client/${userId}/bitacoras`, { headers });
-      const raw = response.data;
-      setClientBitacoras(Array.isArray(raw) ? raw : (raw?.bitacoras ?? []));
+      // Read directly from Supabase — the coach RLS policy allows viewing all
+      // clients' bitácoras. (Previously this hit a dead self-hosted backend via
+      // EXPO_PUBLIC_BACKEND_URL, which was empty, so the list was always empty.)
+      const { data, error } = await supabase
+        .from('bitacoras')
+        .select('id, day_number, date, number_of_wakings, baby_mood, ai_summary, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      setClientBitacoras(data || []);
     } catch (error) {
       console.error('Error fetching bitacoras:', error);
       setClientBitacoras([]);
@@ -193,20 +190,10 @@ export default function DashboardScreen() {
     }
   };
 
-  const togglePremium = async (userId: string, currentRole: string) => {
-    try {
-      const headers = await getAuthHeaders();
-      const newRole = currentRole === 'premium' ? 'user' : 'premium';
-      await axios.put(
-        `${API_URL}/api/coach/client/${userId}/role`,
-        { role: newRole },
-        { headers }
-      );
-      fetchClients();
-    } catch (error) {
-      console.error('Error updating role:', error);
-    }
-  };
+  // NOTE: changing a client's role (premium toggle) is intentionally NOT done
+  // from the client anymore — RLS forbids it. If needed, add a SECURITY DEFINER
+  // RPC (e.g. set_client_role) that verifies the caller is a coach. Removed the
+  // old axios call to the dead self-hosted backend.
 
   useEffect(() => {
     if (userRole === 'coach') {
@@ -385,11 +372,13 @@ export default function DashboardScreen() {
                     <View style={styles.bitacoraHeader}>
                       <Text style={styles.bitacoraDay}>Día #{bitacora.day_number}</Text>
                       <Text style={styles.bitacoraDate}>
-                        {format(new Date(bitacora.date), "d 'de' MMMM", { locale: es })}
+                        {safeDate(bitacora.date)
+                          ? format(safeDate(bitacora.date)!, "d 'de' MMMM", { locale: es })
+                          : ''}
                       </Text>
                     </View>
                     <View style={styles.bitacoraStats}>
-                      {bitacora.number_of_wakings !== undefined && (
+                      {bitacora.number_of_wakings != null && (
                         <View style={styles.bitacoraStat}>
                           <Ionicons name="moon" size={16} color={colors.accent.terracotta} />
                           <Text style={styles.bitacoraStatText}>

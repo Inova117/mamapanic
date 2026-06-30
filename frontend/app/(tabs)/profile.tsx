@@ -9,13 +9,20 @@ import {
   Switch,
   Alert,
   Platform,
+  Linking,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadAvatar, updateProfilePicture } from '../../services/storage';
+import { deleteAccount } from '../../services/api';
+
+const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL || '';
+const TERMS_URL = process.env.EXPO_PUBLIC_TERMS_URL || '';
+const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL || '';
 
 export default function ProfileScreen() {
   const { user, isAuthenticated, signIn, signOut, userRole } = useAuth();
@@ -40,6 +47,51 @@ export default function ProfileScreen() {
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Cerrar sesión', onPress: signOut, style: 'destructive' },
+      ]
+    );
+  };
+
+  const openLink = async (url: string, label: string) => {
+    if (!url) {
+      Alert.alert(label, 'Esta sección estará disponible muy pronto.');
+      return;
+    }
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      Alert.alert('No se pudo abrir', 'Intenta de nuevo más tarde.');
+    }
+  };
+
+  const handleSupport = () => {
+    if (!SUPPORT_EMAIL) {
+      Alert.alert('Ayuda y soporte', 'Pronto podrás contactarnos desde aquí.');
+      return;
+    }
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Soporte%20Mam%C3%A1%20Respira`).catch(() =>
+      Alert.alert('No se pudo abrir el correo', `Escríbenos a ${SUPPORT_EMAIL}`)
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Se borrarán permanentemente tu cuenta y todos tus datos (bitácoras, mensajes y registros). Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+              Alert.alert('Cuenta eliminada', 'Tu cuenta y tus datos fueron borrados.');
+              await signOut();
+            } catch (e) {
+              Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo eliminar la cuenta.');
+            }
+          },
+        },
       ]
     );
   };
@@ -198,28 +250,60 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cuenta</Text>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleSupport}
+            accessibilityRole="button"
+            accessibilityLabel="Ayuda y soporte"
+          >
             <Ionicons name="help-circle-outline" size={24} color={colors.text.secondary} />
             <Text style={styles.menuItemText}>Ayuda y soporte</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => openLink(TERMS_URL, 'Términos y condiciones')}
+            accessibilityRole="button"
+            accessibilityLabel="Términos y condiciones"
+          >
             <Ionicons name="document-text-outline" size={24} color={colors.text.secondary} />
             <Text style={styles.menuItemText}>Términos y condiciones</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => openLink(PRIVACY_URL, 'Política de privacidad')}
+            accessibilityRole="button"
+            accessibilityLabel="Política de privacidad"
+          >
             <Ionicons name="shield-outline" size={24} color={colors.text.secondary} />
             <Text style={styles.menuItemText}>Política de privacidad</Text>
             <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout}>
+          <TouchableOpacity
+            style={[styles.menuItem, styles.logoutItem]}
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar sesión"
+          >
             <Ionicons name="log-out-outline" size={24} color={colors.accent.terracotta} />
             <Text style={[styles.menuItemText, { color: colors.accent.terracotta }]}>
               Cerrar sesión
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={handleDeleteAccount}
+            accessibilityRole="button"
+            accessibilityLabel="Eliminar cuenta permanentemente"
+          >
+            <Ionicons name="trash-outline" size={24} color={colors.status.error} />
+            <Text style={[styles.menuItemText, { color: colors.status.error }]}>
+              Eliminar cuenta
             </Text>
           </TouchableOpacity>
         </View>

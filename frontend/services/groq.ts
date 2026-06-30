@@ -3,13 +3,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { DebugLogger } from '../utils/debugLogger';
+import { supabase } from '../lib/supabase';
 
-const groqApiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY || '';
-
-DebugLogger.info('[Groq] Key present:', groqApiKey ? `YES (${groqApiKey.substring(0, 8)}...)` : 'NO ❌');
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// The Groq API key is NO LONGER in the client. We call a Supabase Edge Function
+// (groq-proxy) that holds the key as a server-side secret and rate-limits per
+// user. See supabase/functions/groq-proxy/index.ts.
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const GROQ_PROXY_URL = `${SUPABASE_URL}/functions/v1/groq-proxy`;
 
 // ⚠️ IMPORTANT: define FALLBACK_MESSAGE BEFORE groqFetch uses it
 const FALLBACK_MESSAGE = 'Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛';
@@ -45,43 +46,57 @@ type Message = { role: 'system' | 'user' | 'assistant'; content: string };
 
 // ─── Core fetch helper ────────────────────────────────────────────────────────
 
-/** Universal Groq fetch — works on iOS, Android, and web PWA */
+/** Calls the groq-proxy Edge Function — works on iOS, Android, and web PWA. */
 async function groqFetch(messages: Message[], maxTokens = 500): Promise<string> {
-    if (!groqApiKey) {
-        DebugLogger.warn('[Groq] No API key — returning fallback');
+    if (!SUPABASE_URL) {
+        DebugLogger.warn('[Groq] No Supabase URL — returning fallback');
         return FALLBACK_MESSAGE;
     }
 
-    DebugLogger.info('[Groq] Starting fetch, msgs:', messages.length);
+    // The proxy requires the caller's JWT (it enforces auth + per-user rate limit).
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+        DebugLogger.warn('[Groq] No session — returning fallback');
+        return FALLBACK_MESSAGE;
+    }
 
-    const resp = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${groqApiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: GROQ_MODEL,
-            messages,
-            temperature: 0.7,
-            max_tokens: maxTokens,
-            top_p: 1,
-        }),
-    });
+    DebugLogger.info('[Groq] Calling proxy, msgs:', messages.length);
 
-    DebugLogger.info('[Groq] Response status:', resp.status);
+    // Abort after 20s so the chat (and the calm flow) never spins forever offline.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    let resp: Response;
+    try {
+        resp = await fetch(GROQ_PROXY_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'apikey': SUPABASE_ANON_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ messages, max_tokens: maxTokens }),
+            signal: controller.signal,
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
+
+    DebugLogger.info('[Groq] Proxy status:', resp.status);
 
     if (!resp.ok) {
         const errorText = await resp.text();
-        const msg = `Groq API ${resp.status}: ${errorText.substring(0, 200)}`;
+        const msg = `Groq proxy ${resp.status}: ${errorText.substring(0, 200)}`;
         DebugLogger.error('[Groq] Error:', msg);
         throw new Error(msg);
     }
 
     const data = await resp.json();
-    const content = data.choices?.[0]?.message?.content;
-    DebugLogger.info('[Groq] Response length:', content?.length ?? 0);
-    return content || FALLBACK_MESSAGE;
+    const content = data?.content;
+    DebugLogger.info('[Groq] Response length:', typeof content === 'string' ? content.length : 0);
+    // Guard against an unexpected (non-string) response shape.
+    return typeof content === 'string' && content ? content : FALLBACK_MESSAGE;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

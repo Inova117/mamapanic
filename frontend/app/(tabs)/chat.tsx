@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
-import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../contexts/AuthContext';
 import { sendChatMessage, getChatHistory } from '../../services/api';
 import { ChatMessage } from '../../types';
 import { InputValidator } from '../../utils/validator';
@@ -22,7 +22,11 @@ import { DebugLogger, LogEntry } from '../../utils/debugLogger';
 // Note: Rate limiting removed from chat to avoid Android AbortError from network calls
 
 export default function ChatScreen() {
-  const { chatSessionId } = useAppStore();
+  const { user } = useAuth();
+  // Stable per-user session id → the conversation with Abuela Sabia survives
+  // app restarts (previously a random id was generated on every launch, which
+  // orphaned the entire prior conversation).
+  const chatSessionId = user ? `chat_${user.id}` : '';
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +45,10 @@ export default function ChatScreen() {
   }, [chatSessionId]);
 
   const loadChatHistory = async () => {
+    if (!chatSessionId) {
+      setIsLoadingHistory(false);
+      return;
+    }
     setIsLoadingHistory(true);
     try {
       const history = await getChatHistory(chatSessionId);
@@ -229,6 +237,8 @@ export default function ChatScreen() {
             ]}
             onPress={handleSend}
             disabled={!inputText.trim() || isLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Enviar mensaje"
           >
             <Ionicons
               name="send"

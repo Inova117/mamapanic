@@ -57,6 +57,7 @@ export type CheckIn = {
     mood: 1 | 2 | 3;
     sleep_start?: string;
     sleep_end?: string;
+    sleep_hours?: number;
     baby_wakeups?: number;
     brain_dump?: string;
     ai_response?: string;
