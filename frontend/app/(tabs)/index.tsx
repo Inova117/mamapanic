@@ -16,7 +16,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Ionicons name="heart" size={32} color={colors.accent.terracotta} />
-          <Text style={styles.logoText}>NIDO</Text>
+          <Text style={styles.logoText}>Entresueños</Text>
         </View>
         <Text style={styles.subtitle}>Estás haciendo un gran trabajo</Text>
       </View>

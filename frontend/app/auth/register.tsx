@@ -63,7 +63,7 @@ export default function RegisterScreen() {
 
                     <View style={styles.titles}>
                         <Text style={styles.title}>Crear Cuenta</Text>
-                        <Text style={styles.subtitle}>Únete a la comunidad de Nido</Text>
+                        <Text style={styles.subtitle}>Únete a la comunidad de Entresueños</Text>
                     </View>
 
                     <View style={styles.form}>

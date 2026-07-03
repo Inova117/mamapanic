@@ -49,9 +49,9 @@ export default function LoginScreen() {
                     <View style={styles.logoContainer}>
                         {/* Placeholder for logo */}
                         <View style={styles.logoPlaceholder}>
-                            <Text style={styles.logoText}>N</Text>
+                            <Text style={styles.logoText}>E</Text>
                         </View>
-                        <Text style={styles.title}>Nido</Text>
+                        <Text style={styles.title}>Entresueños</Text>
                         <Text style={styles.subtitle}>Tu santuario de calma en el posparto</Text>
                     </View>
 

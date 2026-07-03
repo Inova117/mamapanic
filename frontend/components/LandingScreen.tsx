@@ -41,7 +41,7 @@ const TabBar: React.FC<{ icons: Ion[]; active: number }> = ({ icons, active }) =
 const MockHome = () => (
   <>
     <View style={styles.sc}>
-      <Text style={styles.scH}>NIDO</Text>
+      <Text style={styles.scH}>Entresueños</Text>
       <Text style={styles.scSub}>Estás haciendo un gran trabajo</Text>
       <View style={styles.commbar}>
         <Ionicons name="moon" size={13} color={colors.accent.gold} />
@@ -193,7 +193,7 @@ export default function LandingScreen() {
           <View style={styles.top}>
             <View style={styles.mark}>
               <View style={styles.markDot}><Text style={{ fontSize: 15 }}>💛</Text></View>
-              <Text style={styles.markText}>Nido</Text>
+              <Text style={styles.markText}>Entresueños</Text>
             </View>
             <TouchableOpacity style={styles.ghostBtn} onPress={() => router.push('/auth/login')} accessibilityRole="button" accessibilityLabel="Iniciar sesión">
               <Text style={styles.ghostBtnText}>Iniciar sesión</Text>
@@ -203,7 +203,7 @@ export default function LandingScreen() {
           {/* Hero */}
           <View style={styles.hero}>
             <View style={styles.eyebrow}><Ionicons name="moon" size={13} color={colors.accent.gold} /><Text style={styles.eyebrowText}>Para el posparto</Text></View>
-            <Text style={styles.h1}>Nido</Text>
+            <Text style={[styles.h1, { fontSize: isWide ? 64 : 40 }]}>Entresueños</Text>
             <Text style={styles.tagline}>Tu santuario de calma en el posparto</Text>
             <Text style={styles.lede}>
               De pánico a calma en menos de 30 segundos. Respira, registra el sueño de tu bebé y habla
@@ -255,7 +255,7 @@ export default function LandingScreen() {
           {/* Closing */}
           <View style={styles.closing}>
             <Text style={styles.closingTitle}>No tienes que hacerlo sola.</Text>
-            <Text style={styles.closingText}>Únete a Nido y encuentra calma, orden y compañía en el posparto.</Text>
+            <Text style={styles.closingText}>Únete a Entresueños y encuentra calma, orden y compañía en el posparto.</Text>
             <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/auth/register')} accessibilityRole="button" accessibilityLabel="Empezar ahora">
               <Text style={styles.primaryBtnText}>Empezar ahora</Text>
               <Ionicons name="arrow-forward" size={20} color="#23140f" />
@@ -266,7 +266,7 @@ export default function LandingScreen() {
           <View style={styles.footer}>
             {!!PRIVACY_URL && <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_URL)}><Text style={styles.footerLink}>Privacidad</Text></TouchableOpacity>}
             {!!TERMS_URL && <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL)}><Text style={styles.footerLink}>Términos</Text></TouchableOpacity>}
-            <Text style={styles.footerText}>© Nido</Text>
+            <Text style={styles.footerText}>© Entresueños</Text>
           </View>
         </View>
       </ScrollView>

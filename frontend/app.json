@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Nido",
+    "name": "Entresueños",
     "slug": "mama-respira",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -28,8 +28,8 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "Nido",
-      "shortName": "Nido",
+      "name": "Entresueños",
+      "shortName": "Entresueños",
       "description": "Tu santuario de calma en el posparto",
       "themeColor": "#1a1a2e",
       "backgroundColor": "#000000",
@@ -55,7 +55,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Nido necesita acceso a tus fotos para que puedas elegir una foto de perfil."
+          "photosPermission": "Entresueños necesita acceso a tus fotos para que puedas elegir una foto de perfil."
         }
       ]
     ],

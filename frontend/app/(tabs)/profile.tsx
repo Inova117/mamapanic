@@ -136,7 +136,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.logoContainer}>
             <Ionicons name="heart" size={64} color={colors.accent.terracotta} />
-            <Text style={styles.logoText}>NIDO</Text>
+            <Text style={styles.logoText}>Entresueños</Text>
           </View>
 
           <Text style={styles.welcomeTitle}>Bienvenida</Text>
@@ -294,7 +294,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.version}>NIDO v1.0.0</Text>
+        <Text style={styles.version}>Entresueños v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
