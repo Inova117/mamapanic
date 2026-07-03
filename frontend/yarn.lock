@@ -1850,27 +1850,18 @@
     invariant "^2.2.4"
     nullthrows "^1.1.1"
 
-"@react-navigation/bottom-tabs@^7.10.1":
-  version "7.18.7"
-  resolved "https://registry.yarnpkg.com/@react-navigation/bottom-tabs/-/bottom-tabs-7.18.7.tgz#fae8398aae17896952ec8082be85a9f938764645"
-  integrity sha512-c3E15wXMyAjuLmDrafKUAfXQFS5M0QMpWbRqlGTw62iSyjrwZxVEGyJ0dD0xlckAJSRUYl2Di68QKWi61aePMg==
-  dependencies:
-    "@react-navigation/elements" "^2.9.29"
-    color "^4.2.3"
-    sf-symbols-typescript "^2.1.0"
-
-"@react-navigation/bottom-tabs@^7.4.0":
+"@react-navigation/bottom-tabs@7.10.1", "@react-navigation/bottom-tabs@^7.4.0":
   version "7.10.1"
-  resolved "https://registry.npmjs.org/@react-navigation/bottom-tabs/-/bottom-tabs-7.10.1.tgz"
+  resolved "https://registry.yarnpkg.com/@react-navigation/bottom-tabs/-/bottom-tabs-7.10.1.tgz#8d28e623f1f503c0e66b55837fa03a78a20ea2a8"
   integrity sha512-MirOzKEe/rRwPSE9HMrS4niIo0LyUhewlvd01TpzQ1ipuXjH2wJbzAM9gS/r62zriB6HMHz2OY6oIRduwQJtTw==
   dependencies:
     "@react-navigation/elements" "^2.9.5"
     color "^4.2.3"
     sf-symbols-typescript "^2.1.0"
 
-"@react-navigation/core@^7.14.0":
+"@react-navigation/core@7.14.0", "@react-navigation/core@^7.14.0":
   version "7.14.0"
-  resolved "https://registry.npmjs.org/@react-navigation/core/-/core-7.14.0.tgz"
+  resolved "https://registry.yarnpkg.com/@react-navigation/core/-/core-7.14.0.tgz#d24f93d424ab33f645262dc4775e4708aa3d9a8b"
   integrity sha512-tMpzskBzVp0E7CRNdNtJIdXjk54Kwe/TF9ViXAef+YFM1kSfGv4e/B2ozfXE+YyYgmh4WavTv8fkdJz1CNyu+g==
   dependencies:
     "@react-navigation/routers" "^7.5.3"
@@ -1882,41 +1873,18 @@
     use-latest-callback "^0.2.4"
     use-sync-external-store "^1.5.0"
 
-"@react-navigation/core@^7.21.5":
-  version "7.21.5"
-  resolved "https://registry.yarnpkg.com/@react-navigation/core/-/core-7.21.5.tgz#2f2c7f5374c9a20d942688aa37c0e9f6665a9549"
-  integrity sha512-3hpV7uR41LBW+GHDoLhztZCb/i5ySRJISZ/rez4d7DCHSZo6ej4gNxYclaS6LRguoLiKG7SOCNa6O390AQklZQ==
-  dependencies:
-    "@react-navigation/routers" "^7.6.0"
-    escape-string-regexp "^4.0.0"
-    fast-deep-equal "^3.1.3"
-    nanoid "^3.3.11"
-    query-string "^7.1.3"
-    react-is "^19.1.0"
-    use-latest-callback "^0.2.4"
-    use-sync-external-store "^1.5.0"
-
-"@react-navigation/elements@^2.9.29":
-  version "2.9.29"
-  resolved "https://registry.yarnpkg.com/@react-navigation/elements/-/elements-2.9.29.tgz#bcb56e14b8e26b2c908ca961de2c47fc8222a32c"
-  integrity sha512-+QpClRQacrwqr4cbHcURJwspuJ6Rmi4GlFQZgqldexDV9e3ZuyGzYNYuIDp2pIBtEKXS18oTGcsdd9XHBaGNnA==
-  dependencies:
-    color "^4.2.3"
-    use-latest-callback "^0.2.4"
-    use-sync-external-store "^1.5.0"
-
-"@react-navigation/elements@^2.9.5":
+"@react-navigation/elements@2.9.5", "@react-navigation/elements@^2.9.5":
   version "2.9.5"
-  resolved "https://registry.npmjs.org/@react-navigation/elements/-/elements-2.9.5.tgz"
+  resolved "https://registry.yarnpkg.com/@react-navigation/elements/-/elements-2.9.5.tgz#29f68c4975351724dcfe1d3bdc76c4d6dc65fc33"
   integrity sha512-iHZU8rRN1014Upz73AqNVXDvSMZDh5/ktQ1CMe21rdgnOY79RWtHHBp9qOS3VtqlUVYGkuX5GEw5mDt4tKdl0g==
   dependencies:
     color "^4.2.3"
     use-latest-callback "^0.2.4"
     use-sync-external-store "^1.5.0"
 
-"@react-navigation/native-stack@^7.3.16":
+"@react-navigation/native-stack@7.10.1", "@react-navigation/native-stack@^7.3.16":
   version "7.10.1"
-  resolved "https://registry.npmjs.org/@react-navigation/native-stack/-/native-stack-7.10.1.tgz"
+  resolved "https://registry.yarnpkg.com/@react-navigation/native-stack/-/native-stack-7.10.1.tgz#de6551286a5e9e2b0c466daa83e0f9bf0321815b"
   integrity sha512-8jt7olKysn07HuKKSjT/ahZZTV+WaZa96o9RI7gAwh7ATlUDY02rIRttwvCyjovhSjD9KCiuJ+Hd4kwLidHwJw==
   dependencies:
     "@react-navigation/elements" "^2.9.5"
@@ -1924,21 +1892,9 @@
     sf-symbols-typescript "^2.1.0"
     warn-once "^0.1.1"
 
-"@react-navigation/native@^7.1.28":
-  version "7.3.7"
-  resolved "https://registry.yarnpkg.com/@react-navigation/native/-/native-7.3.7.tgz#e88b03cb37380407446d6745827a4e9fa4198f22"
-  integrity sha512-zCfbCvXWfKsaYtJ87MxQp/b0kBAUNhi+klMv0cA3F1VqY82O02L/wbuoEUKJXkc7MLFMIAAhOeeAW4CQwaBx2A==
-  dependencies:
-    "@react-navigation/core" "^7.21.5"
-    escape-string-regexp "^4.0.0"
-    fast-deep-equal "^3.1.3"
-    nanoid "^3.3.11"
-    standard-navigation "^0.0.7"
-    use-latest-callback "^0.2.4"
-
-"@react-navigation/native@^7.1.8":
+"@react-navigation/native@7.1.28", "@react-navigation/native@^7.1.8":
   version "7.1.28"
-  resolved "https://registry.npmjs.org/@react-navigation/native/-/native-7.1.28.tgz"
+  resolved "https://registry.yarnpkg.com/@react-navigation/native/-/native-7.1.28.tgz#1ee75cf3a8b3e4365f94c5d657bb3c015e387720"
   integrity sha512-d1QDn+KNHfHGt3UIwOZvupvdsDdiHYZBEj7+wL2yDVo3tMezamYy60H9s3EnNVE1Ae1ty0trc7F2OKqo/RmsdQ==
   dependencies:
     "@react-navigation/core" "^7.14.0"
@@ -1947,17 +1903,10 @@
     nanoid "^3.3.11"
     use-latest-callback "^0.2.4"
 
-"@react-navigation/routers@^7.5.3":
-  version "7.5.3"
-  resolved "https://registry.npmjs.org/@react-navigation/routers/-/routers-7.5.3.tgz"
-  integrity sha512-1tJHg4KKRJuQ1/EvJxatrMef3NZXEPzwUIUZ3n1yJ2t7Q97siwRtbynRpQG9/69ebbtiZ8W3ScOZF/OmhvM4Rg==
-  dependencies:
-    nanoid "^3.3.11"
-
-"@react-navigation/routers@^7.6.0":
-  version "7.6.0"
-  resolved "https://registry.yarnpkg.com/@react-navigation/routers/-/routers-7.6.0.tgz#04ee630c4ecbdfa3c8ef65000909aa2dbf0ff78f"
-  integrity sha512-lblhDXfS75jLc7G2K7BZGM+7cjqQXk13X/MA4fq/12r62zM+fBhhreLzYflSitrDDXFRJpSvJXy0ziiGU04Xow==
+"@react-navigation/routers@7.5.0", "@react-navigation/routers@^7.5.3":
+  version "7.5.0"
+  resolved "https://registry.yarnpkg.com/@react-navigation/routers/-/routers-7.5.0.tgz#f376f8c637a072ed3f618eb35ef4d7b9ad04db4a"
+  integrity sha512-xzy8rGuDn55RjIc0H5IEuyxo7U3XF0SaGS//OlNBlfkMagtW4qU8SvXtiY/b+hwXhCfdsFPzXxJo0DkhUToIhg==
   dependencies:
     nanoid "^3.3.11"
 
@@ -6985,11 +6934,6 @@ stacktrace-parser@^0.1.10:
   integrity sha512-WjlahMgHmCJpqzU8bIBy4qtsZdU9lRlcZE3Lvyej6t4tuOuv1vk57OW3MBrj6hXBFx/nNoC9MPMTcr5YA7NQbg==
   dependencies:
     type-fest "^0.7.1"
-
-standard-navigation@^0.0.7:
-  version "0.0.7"
-  resolved "https://registry.yarnpkg.com/standard-navigation/-/standard-navigation-0.0.7.tgz#8c5265c4244446e0fb2b4bc9861a9979dd34f22f"
-  integrity sha512-NCGLCNyuXrFOkGHxdNZFnpsehGtiq1oXbPhKl7ZuxFO5J//H2evqqOchmD4YwEUJnkjO4kH9Xp4hQX6hdAYCKQ==
 
 statuses@2.0.1:
   version "2.0.1"

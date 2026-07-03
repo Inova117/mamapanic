@@ -114,6 +114,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
         >
           <Text style={styles.buttonText}>Reintentar</Text>
         </TouchableOpacity>
+
+        {!!this.state.error && (
+          <Text style={styles.errText} selectable>
+            {String((this.state.error && this.state.error.message) || this.state.error)}
+          </Text>
+        )}
       </View>
     );
   }
@@ -175,6 +181,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  errText: {
+    marginTop: spacing.lg,
+    fontSize: fontSize.xs,
+    color: colors.text.muted,
+    textAlign: 'center',
+    maxWidth: 320,
   },
 });
 
