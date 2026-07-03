@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Mamá Respira",
+    "name": "Nido",
     "slug": "mama-respira",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -24,8 +24,8 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "Mam\u00e1 Respira",
-      "shortName": "Mam\u00e1 Respira",
+      "name": "Nido",
+      "shortName": "Nido",
       "description": "Tu santuario de calma en el posparto",
       "themeColor": "#1a1a2e",
       "backgroundColor": "#000000",
@@ -51,7 +51,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Mamá Respira necesita acceso a tus fotos para que puedas elegir una foto de perfil."
+          "photosPermission": "Nido necesita acceso a tus fotos para que puedas elegir una foto de perfil."
         }
       ],
       [

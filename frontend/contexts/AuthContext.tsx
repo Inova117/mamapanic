@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { navigateToHome } from '../services/navigation';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, usePathname } from 'expo-router';
 import * as Linking from 'expo-linking';
 
 // Define the context shape
@@ -27,6 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const router = useRouter();
   const segments = useSegments();
+  const pathname = usePathname();
 
   // Fetch user role from profiles table
   const fetchUserRole = async (userId: string) => {
@@ -129,8 +130,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const inAuthGroup = segments[0] === 'auth';
     const onResetPage = String(segments[1]) === 'reset-password';
     // The root route ("/") is the PUBLIC landing page — don't force logged-out
-    // visitors to login there (index.tsx shows the landing / redirects if authed).
-    const onLanding = (segments as string[]).length === 0;
+    // visitors to login there. Use pathname (reliable) rather than segments,
+    // which can be non-empty at "/" and caused a false redirect to login.
+    const onLanding = pathname === '/' || (segments as string[]).length === 0;
 
     if (!user && !inAuthGroup && !onLanding) {
       router.replace('/auth/login');
@@ -138,7 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // isPasswordRecovery or being on the reset-password page prevents redirect while the user resets their password
       navigateToHome(router);
     }
-  }, [user, segments, isLoading, isPasswordRecovery]);
+  }, [user, segments, pathname, isLoading, isPasswordRecovery]);
 
   // Sign In
   const signIn = async (email: string, password: string) => {

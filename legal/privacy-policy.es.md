@@ -1,4 +1,4 @@
-# Política de Privacidad — Mamá Respira
+# Política de Privacidad — Nido
 
 > ⚠️ **BORRADOR — requiere revisión legal.** Este texto es una plantilla generada para acelerar el proceso; **no es asesoría legal**. Antes de publicarlo, complétalo con tus datos y revísalo con un profesional (LFPDPPP en México y, si aplica, GDPR para la UE). Reemplaza todo lo que está entre `[corchetes]`.
 
@@ -7,8 +7,8 @@
 **Contacto de privacidad:** [correo de contacto, p. ej. privacidad@mamarespira.app]
 **Última actualización:** [fecha]
 
-## 1. Qué es Mamá Respira
-Mamá Respira es una aplicación de apoyo para madres en el posparto, enfocada en acompañamiento de sueño infantil junto a una coach. Esta política explica qué datos recopilamos, para qué, y qué derechos tienes.
+## 1. Qué es Nido
+Nido es una aplicación de apoyo para madres en el posparto, enfocada en acompañamiento de sueño infantil junto a una coach. Esta política explica qué datos recopilamos, para qué, y qué derechos tienes.
 
 ## 2. Datos personales que recopilamos
 - **Cuenta:** correo electrónico, nombre y (opcional) foto de perfil.

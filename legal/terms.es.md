@@ -1,4 +1,4 @@
-# Términos y Condiciones — Mamá Respira
+# Términos y Condiciones — Nido
 
 > ⚠️ **BORRADOR — requiere revisión legal.** Plantilla para acelerar; **no es asesoría legal**. Complétalo con tus datos y revísalo con un profesional antes de publicarlo. Reemplaza lo que está entre `[corchetes]`.
 
@@ -7,7 +7,7 @@
 **Última actualización:** [fecha]
 
 ## 1. Aceptación
-Al crear una cuenta o usar Mamá Respira (“la App”), aceptas estos Términos. Si no estás de acuerdo, no uses la App.
+Al crear una cuenta o usar Nido (“la App”), aceptas estos Términos. Si no estás de acuerdo, no uses la App.
 
 ## 2. Descripción del servicio
 La App ofrece herramientas de registro de sueño y bienestar para el posparto, acompañamiento por parte de una coach, y un asistente de IA de apoyo emocional (“Abuela Sabia”).
