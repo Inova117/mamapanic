@@ -175,7 +175,7 @@ const FeatureRow: React.FC<Feat & { isWide: boolean }> = ({ kicker, title, copy,
       </View>
     </View>
   );
-  const artEl = <View key="art" style={[styles.col, styles.artCol]}>{mock}</View>;
+  const artEl = <View key="art" style={[styles.col, styles.artCol, isWide && styles.colFlex]}>{mock}</View>;
   const kids = isWide && reversed ? [artEl, copyEl] : [copyEl, artEl];
   return <View style={[styles.feat, isWide && styles.featWide]}>{kids}</View>;
 };
@@ -304,7 +304,9 @@ const styles = StyleSheet.create({
   featWide: { flexDirection: 'row', alignItems: 'center', gap: 48 },
   col: { alignItems: 'flex-start' },
   colFlex: { flex: 1 },
-  artCol: { alignItems: 'center', width: '100%' },
+  // Narrow: parent column stretches this full-width; wide: colFlex makes it share the row 50/50.
+  // (No width:'100%' — in RN Web flexShrink defaults to 0, so 100% would starve the copy column.)
+  artCol: { alignItems: 'center' },
   kicker: { color: colors.accent.sage, fontWeight: '800', fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase' },
   h2: { fontSize: fontSize.xxl, fontWeight: '800', color: colors.text.primary, marginTop: spacing.sm, letterSpacing: -0.4 },
   copyP: { color: colors.text.secondary, fontSize: fontSize.md, marginTop: spacing.md, lineHeight: 25, maxWidth: 440 },
