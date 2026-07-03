@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { navigateToHome } from '../services/navigation';
 import { useRouter, useSegments } from 'expo-router';
+import * as Linking from 'expo-linking';
 
 // Define the context shape
 interface AuthContextType {
@@ -88,6 +89,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Handle the password-recovery deep link (native). Supabase returns the
+  // tokens in the URL fragment; we exchange them for a session and route to the
+  // reset screen. (detectSessionInUrl is off, so we parse manually.)
+  useEffect(() => {
+    const handleRecoveryUrl = async (url: string | null) => {
+      if (!url || !url.includes('type=recovery')) return;
+      const frag = url.split('#')[1] || url.split('?')[1] || '';
+      const params: Record<string, string> = {};
+      frag.split('&').forEach((kv) => {
+        const [k, v] = kv.split('=');
+        if (k) params[k] = decodeURIComponent(v || '');
+      });
+      if (params.access_token && params.refresh_token) {
+        try {
+          await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          setIsPasswordRecovery(true);
+          router.replace('/auth/reset-password' as any);
+        } catch (e) {
+          console.error('Recovery deep link error:', e);
+        }
+      }
+    };
+
+    Linking.getInitialURL().then(handleRecoveryUrl);
+    const sub = Linking.addEventListener('url', ({ url }) => handleRecoveryUrl(url));
+    return () => sub.remove();
   }, []);
 
   // Protect routes

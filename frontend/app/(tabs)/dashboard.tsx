@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
@@ -195,12 +196,17 @@ export default function DashboardScreen() {
   // RPC (e.g. set_client_role) that verifies the caller is a coach. Removed the
   // old axios call to the dead self-hosted backend.
 
-  useEffect(() => {
-    if (userRole === 'coach') {
-      fetchClients();
-      fetchRecentActivity();
-    }
-  }, [userRole]);
+  // Refetch every time the dashboard regains focus (tabs stay mounted, so a
+  // plain mount-effect would go stale for the whole session — unread counts,
+  // clients and recent activity would never update).
+  useFocusEffect(
+    useCallback(() => {
+      if (userRole === 'coach') {
+        fetchClients();
+        fetchRecentActivity();
+      }
+    }, [userRole])
+  );
 
   const handleSelectClient = (client: Client) => {
     setSelectedClient(client);

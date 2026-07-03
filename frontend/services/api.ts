@@ -1,5 +1,5 @@
 import { supabase, CheckIn, ChatMessage, ValidationCard, Bitacora, Profile, DirectMessage } from '../lib/supabase';
-import { getChatResponse, getValidationResponse, getBitacoraSummary } from './groq';
+import { getChatResponse, getValidationResponse, getBitacoraSummary, FALLBACK_MESSAGE } from './groq';
 import { DebugLogger } from '../utils/debugLogger';
 import { localDateString, localDayRange } from '../utils/date';
 
@@ -136,6 +136,20 @@ export const sendChatMessage = async (
   DebugLogger.info('[Chat] Calling getChatResponse...');
   const aiResponse = await getChatResponse(content, history);
   DebugLogger.info('[Chat] Got response, length:', aiResponse.length);
+
+  // Don't persist the AI fallback/error message — otherwise a transient Groq
+  // outage saves "no pude responder…" into history forever. Show it this
+  // session only (local id, not written to the DB).
+  if (aiResponse === FALLBACK_MESSAGE) {
+    return {
+      id: `local_${Date.now()}`,
+      session_id: sessionId,
+      user_id: user.id,
+      role: 'assistant',
+      content: aiResponse,
+      created_at: new Date().toISOString(),
+    } as ChatMessage;
+  }
 
   // Save assistant message and return it
   const { data, error } = await supabase

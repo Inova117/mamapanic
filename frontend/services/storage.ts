@@ -29,14 +29,16 @@ export const uploadAvatar = async (userId: string): Promise<string | null> => {
         }
 
         const image = result.assets[0];
-        const fileExt = image.uri.split('.').pop() || 'jpg';
+        const rawExt = (image.uri.split('.').pop() || 'jpg').toLowerCase();
+        const fileExt = rawExt === 'png' ? 'png' : 'jpg';
+        const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
         const filePath = `${userId}/avatar.${fileExt}`;
 
         // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
             .from('avatars')
             .upload(filePath, decode(image.base64!), {
-                contentType: `image/${fileExt}`,
+                contentType,
                 upsert: true,
             });
 
@@ -156,4 +158,9 @@ export const updateProfilePicture = async (
         .eq('id', userId);
 
     if (error) throw error;
+
+    // Also mirror into auth user_metadata so the Profile screen (which reads
+    // user.user_metadata.picture) refreshes immediately via the USER_UPDATED
+    // auth event, instead of showing the old/blank avatar until next login.
+    await supabase.auth.updateUser({ data: { picture: pictureUrl } });
 };

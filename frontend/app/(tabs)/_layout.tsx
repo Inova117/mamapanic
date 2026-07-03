@@ -105,7 +105,6 @@ export default function TabLayout() {
         <Tabs.Screen name="chat" options={{ href: null }} />
         <Tabs.Screen name="bitacora" options={{ href: null }} />
         <Tabs.Screen name="messages" options={{ href: null }} />
-        <Tabs.Screen name="analytics" options={{ href: null }} />
       </Tabs>
     );
   }
@@ -162,7 +161,6 @@ export default function TabLayout() {
 
       {/* Hidden Utility/Coach Screens */}
       <Tabs.Screen name="dashboard" options={{ href: null }} />
-      <Tabs.Screen name="analytics" options={{ href: null }} />
       <Tabs.Screen name="coach-ai" options={{ href: null }} />
       <Tabs.Screen name="clients" options={{ href: null }} />
       <Tabs.Screen name="coach-bitacoras" options={{ href: null }} />

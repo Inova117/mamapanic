@@ -1,9 +1,10 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider } from '../contexts/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { colors } from '../theme/theme';
 import ErrorBoundary from '../components/ErrorBoundary';
 import * as Sentry from '@sentry/react-native';
@@ -43,23 +44,39 @@ Sentry.init({
   ignoreErrors: ['Network request failed', 'Failed to fetch', 'Rate limit exceeded'],
 });
 
+// Inner shell: renders the navigator always (so routing stays mounted) and
+// overlays a calm splash while the auth session is resolving — this hides the
+// login-screen flash that used to appear on every cold start.
+function AppShell() {
+  const { isLoading } = useAuth();
+  return (
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <StatusBar style="light" backgroundColor={colors.background.primary} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background.primary },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+        {isLoading && (
+          <View style={styles.splash}>
+            <Ionicons name="heart" size={56} color={colors.accent.terracotta} />
+            <ActivityIndicator color={colors.accent.sage} style={{ marginTop: 20 }} />
+          </View>
+        )}
+      </View>
+    </SafeAreaProvider>
+  );
+}
+
 export default Sentry.wrap(function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <SafeAreaProvider>
-          <View style={styles.container}>
-            <StatusBar style="light" backgroundColor={colors.background.primary} />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.background.primary },
-              }}
-            >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            </Stack>
-          </View>
-        </SafeAreaProvider>
+        <AppShell />
       </AuthProvider>
     </ErrorBoundary>
   );
@@ -69,5 +86,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  splash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

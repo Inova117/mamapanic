@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { colors, fonts, spacing } from '../../theme/theme';
@@ -26,12 +27,16 @@ export default function ForgotPasswordScreen() {
 
         setLoading(true);
         try {
+            // Native builds open the app via its scheme; web uses the site URL.
+            // BOTH must be in Supabase Auth → URL Configuration → Redirect URLs:
+            //   mamarespira://auth/reset-password   and   https://<your-web>/auth/reset-password
+            const redirectTo = Platform.OS === 'web'
+                ? 'https://nidoes.netlify.app/auth/reset-password'
+                : Linking.createURL('/auth/reset-password');
+
             const { error } = await supabase.auth.resetPasswordForEmail(
                 emailCheck.sanitized!,
-                {
-                    // This URL must be in Supabase's allowed redirect list
-                    redirectTo: 'https://nidoes.netlify.app/auth/reset-password',
-                }
+                { redirectTo }
             );
 
             if (error) throw error;

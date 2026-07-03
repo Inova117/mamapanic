@@ -1,12 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, spacing } from '../../theme/theme';
+import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import CrisisModeScreen from '../../components/CrisisModeScreen';
 import CommunityBar from '../../components/CommunityBar';
+import { BitacoraInput } from '../../components/BitacoraInput';
 
 export default function HomeScreen() {
+  const [showCheckIn, setShowCheckIn] = useState(false);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -31,6 +34,19 @@ export default function HomeScreen() {
         <Text style={styles.promptSubtext}>
           Si te sientes abrumada, toca el botón de abajo
         </Text>
+
+        {/* Daily mood check-in */}
+        <TouchableOpacity
+          style={styles.checkInCard}
+          onPress={() => setShowCheckIn(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Registrar cómo me siento hoy"
+        >
+          <Ionicons name="sunny" size={22} color={colors.accent.gold} />
+          <Text style={styles.checkInText}>¿Cómo amaneciste hoy?</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.text.muted} />
+        </TouchableOpacity>
       </View>
 
       {/* Quick Tips */}
@@ -49,6 +65,30 @@ export default function HomeScreen() {
       <View style={styles.panicContainer}>
         <CrisisModeScreen />
       </View>
+
+      {/* Daily check-in modal */}
+      <Modal
+        visible={showCheckIn}
+        animationType="slide"
+        onRequestClose={() => setShowCheckIn(false)}
+      >
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowCheckIn(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar"
+            >
+              <Ionicons name="close" size={28} color={colors.text.secondary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Check-in de hoy</Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            <BitacoraInput onComplete={() => { /* keep modal open so she sees the response; she closes with X */ }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -84,10 +124,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   mainContent: {
-    flex: 1,                  // ← takes all remaining space, no more squished layout
+    flex: 1,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
-    justifyContent: 'center', // ← vertically centered in that space
+    justifyContent: 'center',
   },
   promptText: {
     fontSize: fontSize.xxl,
@@ -100,6 +140,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text.secondary,
     textAlign: 'center',
+  },
+  checkInCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.background.card,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    alignSelf: 'stretch',
+  },
+  checkInText: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
   tipsContainer: {
     flexDirection: 'row',
@@ -121,7 +178,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   panicContainer: {
-    paddingBottom: spacing.md,  // ← just a small breathing room, no more 130px
+    paddingBottom: spacing.md,
     paddingHorizontal: spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background.card,
+  },
+  modalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
 });

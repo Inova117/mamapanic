@@ -29,8 +29,8 @@ export async function isCoach(): Promise<boolean> {
  * All roles go to /(tabs) because the tab layout handles the role-based UI
  */
 export async function getHomeRoute(): Promise<string> {
-    const role = await getUserRole();
-    // Default route for everyone is the tabs layout
+    // Default route for everyone is the tabs layout (the tab layout itself
+    // renders the role-based UI). No role lookup needed here.
     return '/(tabs)';
 }
 

@@ -42,9 +42,9 @@ export default function MessagesScreen() {
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
   const flatListRef = useRef<FlatList>(null);
 
-  // Check if user has access (Premium or Coach)
-  // Note: We might want to allow free users to at least see the screen or get an upsell
-  const hasAccess = userRole === 'premium' || userRole === 'coach';
+  // Every signed-in mother can message her coach (the premium gate was removed;
+  // the backend already scopes DMs to user<->coach via RLS).
+  const hasAccess = !!user;
 
   useEffect(() => {
     const unsub = DebugLogger.subscribe(logs => setDebugLogs([...logs]));
@@ -196,10 +196,12 @@ export default function MessagesScreen() {
             <Text style={styles.statusText}>En línea</Text>
           </View>
         </View>
-        {/* 🐛 Debug button */}
-        <TouchableOpacity style={styles.debugButton} onPress={() => setShowDebug(true)}>
-          <Text style={{ fontSize: 18 }}>🐛</Text>
-        </TouchableOpacity>
+        {/* 🐛 Debug button — dev builds only, never shown to real users */}
+        {__DEV__ && (
+          <TouchableOpacity style={styles.debugButton} onPress={() => setShowDebug(true)}>
+            <Text style={{ fontSize: 18 }}>🐛</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Messages List */}

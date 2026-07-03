@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
@@ -46,22 +46,9 @@ export default function BitacoraScreen() {
     fetchData();
   };
 
-  // Today is one entry per day. If one already exists, re-submitting would
-  // REPLACE it (the form opens blank), so confirm before overwriting.
-  const handleNewBitacora = () => {
-    if (todayBitacora) {
-      Alert.alert(
-        'Ya registraste hoy',
-        'Si continúas, el registro de hoy se reemplazará con los nuevos datos.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Reemplazar', style: 'destructive', onPress: () => setShowInput(true) },
-        ]
-      );
-    } else {
-      setShowInput(true);
-    }
-  };
+  // One entry per day. If today's entry exists it is pre-loaded into the form
+  // (edit mode), so opening is safe — no destructive overwrite.
+  const handleNewBitacora = () => setShowInput(true);
 
   if (showInput) {
     return (
@@ -79,6 +66,7 @@ export default function BitacoraScreen() {
         <SleepCoachBitacora
           onComplete={handleBitacoraComplete}
           onClose={handleClose}
+          initial={todayBitacora ?? undefined}
         />
       </SafeAreaView>
     );
@@ -213,11 +201,11 @@ export default function BitacoraScreen() {
           onPress={handleNewBitacora}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={todayBitacora ? 'Reemplazar la bitácora de hoy' : 'Registrar la bitácora de hoy'}
+          accessibilityLabel={todayBitacora ? 'Editar la bitácora de hoy' : 'Registrar la bitácora de hoy'}
         >
-          <Ionicons name="add" size={28} color={colors.text.primary} />
+          <Ionicons name={todayBitacora ? 'create' : 'add'} size={28} color={colors.text.primary} />
           <Text style={styles.fabText}>
-            {todayBitacora ? 'Nueva bitácora' : 'Registrar hoy'}
+            {todayBitacora ? 'Editar bitácora de hoy' : 'Registrar hoy'}
           </Text>
         </TouchableOpacity>
       </View>

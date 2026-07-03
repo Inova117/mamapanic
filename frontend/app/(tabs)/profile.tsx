@@ -232,20 +232,6 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Premium Section */}
-        {userRole === 'user' && (
-          <View style={styles.premiumCard}>
-            <Ionicons name="star" size={32} color={colors.accent.gold} />
-            <Text style={styles.premiumTitle}>Actualiza a Premium</Text>
-            <Text style={styles.premiumDescription}>
-              Comunícate directamente con tu coach de sueño y recibe atención personalizada.
-            </Text>
-            <TouchableOpacity style={styles.premiumButton}>
-              <Text style={styles.premiumButtonText}>Ver planes</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cuenta</Text>

@@ -152,13 +152,15 @@ export default function ChatScreen() {
           <Text style={styles.headerTitle}>Abuela Sabia</Text>
           <Text style={styles.headerSubtitle}>Aquí para escucharte</Text>
         </View>
-        {/* 🐛 Debug button */}
-        <TouchableOpacity
-          style={styles.debugButton}
-          onPress={() => setShowDebug(true)}
-        >
-          <Text style={styles.debugButtonText}>🐛</Text>
-        </TouchableOpacity>
+        {/* 🐛 Debug button — dev builds only, never shown to real users */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.debugButton}
+            onPress={() => setShowDebug(true)}
+          >
+            <Text style={styles.debugButtonText}>🐛</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Messages */}

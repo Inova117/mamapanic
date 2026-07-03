@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { supabase } from '../../lib/supabase';
 import { DailyBitacora } from '../../types';
+import { safeDate } from '../../utils/date';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -92,7 +93,7 @@ export default function CoachBitacorasScreen() {
             <View style={styles.cardLeft}>
                 <Text style={styles.cardDay}>Día #{b.day_number}</Text>
                 <Text style={styles.cardDate}>
-                    {format(new Date(b.date), "d 'de' MMMM", { locale: es })}
+                    {safeDate(b.date) ? format(safeDate(b.date)!, "d 'de' MMMM", { locale: es }) : ''}
                 </Text>
             </View>
 
@@ -109,7 +110,7 @@ export default function CoachBitacorasScreen() {
                 <Text style={styles.timeAgo}>
                     {formatDistanceToNow(new Date(b.created_at), { addSuffix: true, locale: es })}
                 </Text>
-                {b.number_of_wakings !== undefined && (
+                {b.number_of_wakings != null && (
                     <View style={styles.wakingsRow}>
                         <Ionicons name="moon-outline" size={12} color={colors.text.muted} />
                         <Text style={styles.wakingsText}>{b.number_of_wakings}x</Text>
@@ -164,12 +165,12 @@ export default function CoachBitacorasScreen() {
 
                         <ScrollView contentContainerStyle={styles.modalContent}>
                             <Text style={styles.modalDate}>
-                                {format(new Date(selected.date), "EEEE d 'de' MMMM yyyy", { locale: es })}
+                                {safeDate(selected.date) ? format(safeDate(selected.date)!, "EEEE d 'de' MMMM yyyy", { locale: es }) : ''}
                             </Text>
 
                             {/* Stats row */}
                             <View style={styles.statsRow}>
-                                {selected.number_of_wakings !== undefined && (
+                                {selected.number_of_wakings != null && (
                                     <View style={styles.statChip}>
                                         <Ionicons name="moon" size={16} color={colors.accent.terracotta} />
                                         <Text style={styles.statChipText}>{selected.number_of_wakings} despertares</Text>
@@ -181,7 +182,7 @@ export default function CoachBitacorasScreen() {
                                         <Text style={styles.statChipText}>{selected.baby_mood}</Text>
                                     </View>
                                 )}
-                                {selected.time_to_fall_asleep_minutes !== undefined && (
+                                {selected.time_to_fall_asleep_minutes != null && (
                                     <View style={styles.statChip}>
                                         <Ionicons name="time-outline" size={16} color={colors.accent.gold} />
                                         <Text style={styles.statChipText}>{selected.time_to_fall_asleep_minutes} min en dormirse</Text>

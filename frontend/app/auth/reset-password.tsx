@@ -21,10 +21,14 @@ export default function ResetPasswordScreen() {
     const router = useRouter();
 
     useEffect(() => {
-        // Supabase handles the token from the URL hash automatically.
-        // Listen for the PASSWORD_RECOVERY event.
+        // The deep-link handler in AuthContext may have already exchanged the
+        // recovery tokens for a session — so if a session already exists, we're
+        // ready. Also keep listening for the PASSWORD_RECOVERY event (web path).
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) setSessionReady(true);
+        });
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
+            async (event) => {
                 if (event === 'PASSWORD_RECOVERY') {
                     setSessionReady(true);
                 }

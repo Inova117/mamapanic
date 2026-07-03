@@ -20,7 +20,9 @@ import { getDirectMessages, sendDirectMessage, markMessagesRead } from '../../se
 import { InputValidator } from '../../utils/validator';
 
 export default function CoachClientChatScreen() {
-    const { id: clientId } = useLocalSearchParams();
+    const { id: rawClientId } = useLocalSearchParams();
+    // useLocalSearchParams can yield string | string[]; normalize to a string.
+    const clientId = Array.isArray(rawClientId) ? rawClientId[0] : rawClientId;
     const router = useRouter();
     const insets = useSafeAreaInsets();
 

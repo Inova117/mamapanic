@@ -13,7 +13,8 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 const GROQ_PROXY_URL = `${SUPABASE_URL}/functions/v1/groq-proxy`;
 
 // ⚠️ IMPORTANT: define FALLBACK_MESSAGE BEFORE groqFetch uses it
-const FALLBACK_MESSAGE = 'Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛';
+// Exported so callers can detect the fallback and avoid persisting it as a real reply.
+export const FALLBACK_MESSAGE = 'Lo siento, no pude responder ahora. Recuerda: estás haciendo un gran trabajo. Respira profundo. 💛';
 
 // ─── Persona ──────────────────────────────────────────────────────────────────
 

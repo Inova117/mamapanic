@@ -29,7 +29,27 @@ import { format } from 'date-fns';
 interface SleepCoachBitacoraProps {
   onComplete?: (bitacora: DailyBitacora) => void;
   onClose?: () => void;
+  /** Existing entry to edit (pre-fills the form). */
+  initial?: DailyBitacora;
 }
+
+/** Build a nested NapEntry from the flat DB columns of an existing bitácora. */
+const napFromFlat = (b: DailyBitacora | undefined, n: 1 | 2 | 3): NapEntry => {
+  if (!b) return {};
+  const e: NapEntry = {};
+  const src = b as unknown as Record<string, unknown>;
+  const dur = src[`nap_${n}_duration_minutes`];
+  if (dur != null) e.duration_minutes = dur as number;
+  const ld = src[`nap_${n}_laid_down`];
+  if (ld) e.laid_down_time = ld as string;
+  const fa = src[`nap_${n}_fell_asleep`];
+  if (fa) e.fell_asleep_time = fa as string;
+  const hf = src[`nap_${n}_how_fell_asleep`];
+  if (hf) e.how_fell_asleep = hf as string;
+  const wu = src[`nap_${n}_woke_up`];
+  if (wu) e.woke_up_time = wu as string;
+  return e;
+};
 
 type Section = 'sleep' | 'naps' | 'night' | 'complete';
 
@@ -68,6 +88,11 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
   const [hour, setHour] = useState(initial.hour);
   const [minute, setMinute] = useState(initial.minute);
   const [period, setPeriod] = useState(initial.period);
+  // Track whether a time was actually chosen. Without this, the picker showed a
+  // default "8:00 PM" that was NEVER emitted unless tapped → the parent kept
+  // `undefined` and the time saved as NULL. Now nothing is highlighted/saved
+  // until the mother taps.
+  const [isSet, setIsSet] = useState(value !== undefined);
 
   // Sync internal state when value prop changes
   useEffect(() => {
@@ -75,20 +100,24 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
     setHour(updated.hour);
     setMinute(updated.minute);
     setPeriod(updated.period);
+    setIsSet(value !== undefined);
   }, [value]);
 
   const handleHourChange = (h: string) => {
     setHour(h);
+    setIsSet(true);
     onChange(convert12to24(h, minute, period));
   };
 
   const handleMinuteChange = (m: string) => {
     setMinute(m);
+    setIsSet(true);
     onChange(convert12to24(hour, m, period));
   };
 
   const handlePeriodChange = (p: string) => {
     setPeriod(p);
+    setIsSet(true);
     onChange(convert12to24(hour, minute, p));
   };
 
@@ -104,10 +133,10 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
             {HOURS_12.map((h) => (
               <TouchableOpacity
                 key={h}
-                style={[styles.timeQuickButton, hour === h && styles.timeQuickButtonSelected]}
+                style={[styles.timeQuickButton, isSet && hour === h && styles.timeQuickButtonSelected]}
                 onPress={() => handleHourChange(h)}
               >
-                <Text style={[styles.timeQuickText, hour === h && styles.timeQuickTextSelected]}>
+                <Text style={[styles.timeQuickText, isSet && hour === h && styles.timeQuickTextSelected]}>
                   {h}
                 </Text>
               </TouchableOpacity>
@@ -120,10 +149,10 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
             {MINUTES.map((m) => (
               <TouchableOpacity
                 key={m}
-                style={[styles.timeQuickButton, minute === m && styles.timeQuickButtonSelected]}
+                style={[styles.timeQuickButton, isSet && minute === m && styles.timeQuickButtonSelected]}
                 onPress={() => handleMinuteChange(m)}
               >
-                <Text style={[styles.timeQuickText, minute === m && styles.timeQuickTextSelected]}>
+                <Text style={[styles.timeQuickText, isSet && minute === m && styles.timeQuickTextSelected]}>
                   {m}
                 </Text>
               </TouchableOpacity>
@@ -136,10 +165,10 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
             {PERIODS.map((p) => (
               <TouchableOpacity
                 key={p}
-                style={[styles.timePeriodButton, period === p && styles.timePeriodButtonSelected]}
+                style={[styles.timePeriodButton, isSet && period === p && styles.timePeriodButtonSelected]}
                 onPress={() => handlePeriodChange(p)}
               >
-                <Text style={[styles.timePeriodText, period === p && styles.timePeriodTextSelected]}>
+                <Text style={[styles.timePeriodText, isSet && period === p && styles.timePeriodTextSelected]}>
                   {p}
                 </Text>
               </TouchableOpacity>
@@ -148,8 +177,10 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, label, icon })
         </View>
       </View>
       <View style={styles.timeDisplay}>
-        <Ionicons name="time" size={20} color={colors.accent.sage} />
-        <Text style={styles.timeDisplayText}>{hour}:{minute} {period}</Text>
+        <Ionicons name="time" size={20} color={isSet ? colors.accent.sage : colors.text.muted} />
+        <Text style={styles.timeDisplayText}>
+          {isSet ? `${hour}:${minute} ${period}` : 'Sin seleccionar — toca una hora'}
+        </Text>
       </View>
     </View>
   );
@@ -195,7 +226,7 @@ interface NapSectionProps {
 }
 
 const NapSection: React.FC<NapSectionProps> = ({ napNumber, nap, onChange }) => {
-  const hasData = nap.duration_minutes || nap.woke_up_time;
+  const hasData = nap.duration_minutes || nap.woke_up_time || nap.laid_down_time || nap.fell_asleep_time || nap.how_fell_asleep;
   
   return (
     <View style={styles.napContainer}>
@@ -235,6 +266,28 @@ const NapSection: React.FC<NapSectionProps> = ({ napNumber, nap, onChange }) => 
         </View>
         
         <TimePicker
+          label="Le acosté a las"
+          icon="bed-outline"
+          value={nap.laid_down_time}
+          onChange={(time) => onChange({ ...nap, laid_down_time: time })}
+        />
+
+        <TimePicker
+          label="Se durmió a las"
+          icon="moon-outline"
+          value={nap.fell_asleep_time}
+          onChange={(time) => onChange({ ...nap, fell_asleep_time: time })}
+        />
+
+        <OptionSelector
+          label="¿Cómo se durmió?"
+          icon="hand-left-outline"
+          options={HOW_FELL_ASLEEP_OPTIONS}
+          value={nap.how_fell_asleep}
+          onChange={(v) => onChange({ ...nap, how_fell_asleep: v })}
+        />
+
+        <TimePicker
           label="Se despertó a las"
           icon="sunny-outline"
           value={nap.woke_up_time}
@@ -245,31 +298,45 @@ const NapSection: React.FC<NapSectionProps> = ({ napNumber, nap, onChange }) => 
   );
 };
 
-export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComplete, onClose }) => {
+export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComplete, onClose, initial }) => {
   const [section, setSection] = useState<Section>('sleep');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<DailyBitacora | null>(null);
-  
+
   // Animation refs for success screen
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
-  // Form state
-  const [previousDayWakeTime, setPreviousDayWakeTime] = useState<string>();
-  const [nap1, setNap1] = useState<NapEntry>({});
-  const [nap2, setNap2] = useState<NapEntry>({});
-  const [nap3, setNap3] = useState<NapEntry>({});
-  const [howBabyAte, setHowBabyAte] = useState<string>();
-  const [relaxingRoutineStart, setRelaxingRoutineStart] = useState<string>();
-  const [babyMood, setBabyMood] = useState<string>();
-  const [lastFeedingTime, setLastFeedingTime] = useState<string>();
-  const [laidDownForBed, setLaidDownForBed] = useState<string>();
-  const [fellAsleepAt, setFellAsleepAt] = useState<string>();
-  const [timeToFallAsleep, setTimeToFallAsleep] = useState<number>();
-  const [numberOfWakings, setNumberOfWakings] = useState<number>(0);
-  const [nightWakings, setNightWakings] = useState<NightWaking[]>([]);
-  const [morningWakeTime, setMorningWakeTime] = useState<string>();
-  const [notes, setNotes] = useState('');
+
+  // Form state — pre-filled from `initial` when editing an existing day.
+  const [previousDayWakeTime, setPreviousDayWakeTime] = useState<string | undefined>(initial?.previous_day_wake_time);
+  const [nap1, setNap1] = useState<NapEntry>(() => napFromFlat(initial, 1));
+  const [nap2, setNap2] = useState<NapEntry>(() => napFromFlat(initial, 2));
+  const [nap3, setNap3] = useState<NapEntry>(() => napFromFlat(initial, 3));
+  const [howBabyAte, setHowBabyAte] = useState<string | undefined>(initial?.how_baby_ate);
+  const [relaxingRoutineStart, setRelaxingRoutineStart] = useState<string | undefined>(initial?.relaxing_routine_start);
+  const [babyMood, setBabyMood] = useState<string | undefined>(initial?.baby_mood);
+  const [lastFeedingTime, setLastFeedingTime] = useState<string | undefined>(initial?.last_feeding_time);
+  const [laidDownForBed, setLaidDownForBed] = useState<string | undefined>(initial?.laid_down_for_bed);
+  const [fellAsleepAt, setFellAsleepAt] = useState<string | undefined>(initial?.fell_asleep_at);
+  const [timeToFallAsleep, setTimeToFallAsleep] = useState<number | undefined>(initial?.time_to_fall_asleep_minutes);
+  const [numberOfWakings, setNumberOfWakings] = useState<number>(initial?.number_of_wakings ?? 0);
+  const [nightWakings, setNightWakings] = useState<NightWaking[]>(initial?.night_wakings ?? []);
+  const [morningWakeTime, setMorningWakeTime] = useState<string | undefined>(initial?.morning_wake_time);
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+
+  // Keep the per-waking detail list in sync with the count the mother picks.
+  const handleWakingsCount = (num: number) => {
+    setNumberOfWakings(num);
+    setNightWakings((prev) => {
+      const next = [...prev];
+      if (num < next.length) return next.slice(0, num);
+      while (next.length < num) next.push({});
+      return next;
+    });
+  };
+  const updateWaking = (i: number, patch: Partial<NightWaking>) => {
+    setNightWakings((prev) => prev.map((w, idx) => (idx === i ? { ...w, ...patch } : w)));
+  };
 
   // Trigger animation when section changes to 'complete'
   useEffect(() => {
@@ -293,7 +360,6 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
   }, [section]);
 
   const handleSubmit = async () => {
-    console.log('🔵 handleSubmit called');
     setIsLoading(true);
     try {
       const bitacora: DailyBitacoraCreate = {
@@ -314,19 +380,12 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
         morning_wake_time: morningWakeTime,
         notes: notes || undefined,
       };
-      
-      console.log('📝 Bitacora data:', JSON.stringify(bitacora, null, 2));
-      console.log('🚀 Calling createBitacora...');
-      
+
       const saved = await createBitacora(bitacora);
-      
-      console.log('✅ Bitacora saved:', saved);
       setResult(saved);
       setSection('complete');
       onComplete?.(saved);
     } catch (error) {
-      console.error('❌ Error saving bitacora:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
       Alert.alert(
         'Error al guardar',
         error instanceof Error ? error.message : 'Error desconocido. Por favor intenta de nuevo.',
@@ -334,7 +393,6 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
       );
     } finally {
       setIsLoading(false);
-      console.log('🔵 handleSubmit finished, isLoading:', false);
     }
   };
 
@@ -436,7 +494,25 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
           onChange={setBabyMood}
         />
       </View>
-      
+
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="Inició la rutina relajante"
+          icon="water-outline"
+          value={relaxingRoutineStart}
+          onChange={setRelaxingRoutineStart}
+        />
+      </View>
+
+      <View style={styles.fieldCard}>
+        <TimePicker
+          label="Última toma del día"
+          icon="restaurant-outline"
+          value={lastFeedingTime}
+          onChange={setLastFeedingTime}
+        />
+      </View>
+
       <View style={styles.fieldCard}>
         <TimePicker
           label="Le acosté a dormir"
@@ -454,7 +530,26 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
           onChange={setFellAsleepAt}
         />
       </View>
-      
+
+      <View style={styles.wakingsCountContainer}>
+        <Text style={styles.inputLabel}>
+          <Ionicons name="time-outline" size={18} color={colors.accent.gold} /> ¿Cuánto tardó en dormirse? (min)
+        </Text>
+        <View style={styles.wakingsButtons}>
+          {[5, 10, 15, 20, 30, 45, 60].map((min) => (
+            <TouchableOpacity
+              key={min}
+              style={[styles.wakingButton, timeToFallAsleep === min && styles.wakingButtonSelected]}
+              onPress={() => setTimeToFallAsleep(min)}
+            >
+              <Text style={[styles.wakingText, timeToFallAsleep === min && styles.wakingTextSelected]}>
+                {min}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       <View style={styles.wakingsCountContainer}>
         <Text style={styles.inputLabel}>
           <Ionicons name="notifications-outline" size={18} color={colors.accent.gold} /> ¿Cuántas veces despertó?
@@ -467,7 +562,7 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
                 styles.wakingButton,
                 numberOfWakings === num && styles.wakingButtonSelected
               ]}
-              onPress={() => setNumberOfWakings(num)}
+              onPress={() => handleWakingsCount(num)}
             >
               <Text style={[
                 styles.wakingText,
@@ -479,7 +574,38 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
           ))}
         </View>
       </View>
-      
+
+      {nightWakings.length > 0 && (
+        <View style={styles.fieldCard}>
+          <Text style={styles.inputLabel}>
+            <Ionicons name="moon-outline" size={18} color={colors.accent.gold} /> Detalle de cada despertar (opcional)
+          </Text>
+          {nightWakings.map((w, i) => (
+            <View
+              key={i}
+              style={{ marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.background.elevated, paddingTop: spacing.sm }}
+            >
+              <Text style={{ fontSize: fontSize.sm, fontWeight: '600', color: colors.text.secondary, marginBottom: spacing.xs }}>
+                Despertar {i + 1}
+              </Text>
+              <TimePicker
+                label="¿A qué hora?"
+                icon="time-outline"
+                value={w.time}
+                onChange={(t) => updateWaking(i, { time: t })}
+              />
+              <TextInput
+                style={styles.notesInput}
+                placeholder="¿Qué hiciste? (opcional)"
+                placeholderTextColor={colors.text.muted}
+                value={w.what_was_done ?? ''}
+                onChangeText={(t) => updateWaking(i, { what_was_done: t })}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
       <View style={styles.notesContainer}>
         <Text style={styles.inputLabel}>
           <Ionicons name="create-outline" size={18} color={colors.accent.gold} /> Notas para la coach (opcional)
@@ -504,12 +630,9 @@ export const SleepCoachBitacora: React.FC<SleepCoachBitacoraProps> = ({ onComple
           <Ionicons name="arrow-back" size={20} color={colors.text.secondary} />
           <Text style={styles.backButtonText}>Atrás</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.submitButton}
-          onPress={() => {
-            console.log('🔴 BUTTON PRESSED - onPress triggered');
-            handleSubmit();
-          }}
+          onPress={handleSubmit}
           disabled={isLoading}
           activeOpacity={0.7}
         >

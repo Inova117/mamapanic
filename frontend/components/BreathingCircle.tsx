@@ -109,6 +109,9 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = ({
     return () => {
       clearInterval(countdownInterval);
       clearTimeout(phaseTimeout);
+      // Stop any in-flight native animation so it doesn't keep running after unmount.
+      scaleAnim.stopAnimation();
+      opacityAnim.stopAnimation();
     };
   }, [phase, cycle]);
 
