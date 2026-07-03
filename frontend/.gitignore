@@ -35,3 +35,7 @@ yarn-error.*
 .env*.local
 .env
 .env.local
+
+# Android signing (local EAS credentials)
+credentials.json
+credentials/
