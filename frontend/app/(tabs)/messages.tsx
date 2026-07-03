@@ -18,7 +18,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getCoach,
-  getDirectMessages,
+  getThreadMessages,
   sendDirectMessage,
   subscribeToDirectMessages
 } from '../../services/api';
@@ -55,29 +55,29 @@ export default function MessagesScreen() {
   }, [hasAccess]);
 
   useEffect(() => {
-    if (!hasAccess) return;
+    if (!hasAccess || !coach) return;
 
-    // Subscribe to real-time messages via WebSocket
+    // Realtime channel (RLS-scoped) as a best-effort fast path; the 5s poll is
+    // the reliable fallback on mobile PWA where WebSockets are flaky. Ignore
+    // any event that isn't part of THIS thread (coach ↔ me).
     const subscription = subscribeToDirectMessages((newMessage) => {
+      if (newMessage.sender_id !== coach.id && newMessage.receiver_id !== coach.id) return;
       setMessages((prev) => {
-        const exists = prev.some(m => m.id === newMessage.id);
-        if (exists) return prev;
+        if (prev.some(m => m.id === newMessage.id)) return prev;
         return [...prev, newMessage];
       });
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
 
-    // Polling fallback every 5s (WebSocket unreliable on mobile PWA)
+    // Poll ONLY this thread (not the whole cross-client history) every 5s.
     const pollInterval = setInterval(async () => {
-      const fresh = await getDirectMessages();
+      const fresh = await getThreadMessages(coach.id);
       setMessages(prev => {
-        // Only update if new messages arrived
-        if (fresh.length !== prev.length) {
-          DebugLogger.info('[Coach] Polling: found new messages', fresh.length, 'vs', prev.length);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-          return fresh;
-        }
-        return prev;
+        const changed = fresh.length !== prev.length
+          || fresh[fresh.length - 1]?.id !== prev[prev.length - 1]?.id;
+        if (!changed) return prev;
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        return fresh;
       });
     }, 5000);
 
@@ -85,14 +85,14 @@ export default function MessagesScreen() {
       subscription.unsubscribe();
       clearInterval(pollInterval);
     };
-  }, [hasAccess]);
+  }, [hasAccess, coach?.id]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const coachProfile = await getCoach();
       setCoach(coachProfile);
-      const history = await getDirectMessages();
+      const history = coachProfile ? await getThreadMessages(coachProfile.id) : [];
       setMessages(history);
     } catch (error) {
       DebugLogger.error('[Coach] loadData error:', String(error));
@@ -124,6 +124,9 @@ export default function MessagesScreen() {
       const sentMessage = await sendDirectMessage(coach.id, content);
 
       if (sentMessage) {
+        // Show it immediately — don't wait up to 5s for the next poll.
+        setMessages(prev => prev.some(m => m.id === sentMessage.id) ? prev : [...prev, sentMessage]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         DebugLogger.info('[Coach] Message sent, id:', sentMessage.id.substring(0, 8));
         AuditLogger.logMessageSent(sentMessage.id, coach.id);
       } else {

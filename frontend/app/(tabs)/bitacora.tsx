@@ -6,7 +6,7 @@ import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import SleepCoachBitacora from '../../components/SleepCoachBitacora';
 import { getBitacoras, getTodayBitacora } from '../../services/api';
 import { DailyBitacora } from '../../types';
-import { safeDate } from '../../utils/date';
+import { safeDate, groupByPeriod } from '../../utils/date';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -15,13 +15,14 @@ export default function BitacoraScreen() {
   const [todayBitacora, setTodayBitacora] = useState<DailyBitacora | null>(null);
   const [recentBitacoras, setRecentBitacoras] = useState<DailyBitacora[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [historyLimit, setHistoryLimit] = useState(14);
 
-  const fetchData = async () => {
+  const fetchData = async (limit: number = historyLimit) => {
     setIsLoading(true);
     try {
       const [today, recent] = await Promise.all([
         getTodayBitacora(),
-        getBitacoras(7),
+        getBitacoras(limit),
       ]);
       setTodayBitacora(today);
       setRecentBitacoras(recent);
@@ -30,6 +31,12 @@ export default function BitacoraScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadMore = () => {
+    const next = historyLimit + 14;
+    setHistoryLimit(next);
+    fetchData(next);
   };
 
   useEffect(() => {
@@ -160,36 +167,47 @@ export default function BitacoraScreen() {
           </View>
         </View>
 
-        {/* Recent Bitácoras */}
+        {/* History — grouped into a timeline: Esta semana / Semana pasada / <mes> */}
         {recentBitacoras.length > 0 && (
           <View style={styles.historySection}>
-            <Text style={styles.sectionTitle}>Historial reciente</Text>
-            {recentBitacoras.map((bitacora) => (
-              <View key={bitacora.id} style={styles.historyCard}>
-                <View style={styles.historyHeader}>
-                  <Text style={styles.historyDay}>Día #{bitacora.day_number}</Text>
-                  <Text style={styles.historyDate}>
-                    {safeDate(bitacora.date)
-                      ? format(safeDate(bitacora.date)!, "d 'de' MMMM", { locale: es })
-                      : ''}
-                  </Text>
-                </View>
-                <View style={styles.historyStats}>
-                  {bitacora.number_of_wakings !== undefined && (
-                    <View style={styles.statBadge}>
-                      <Ionicons name="moon" size={14} color={colors.accent.terracotta} />
-                      <Text style={styles.statText}>{bitacora.number_of_wakings} despertares</Text>
+            <Text style={styles.sectionTitle}>Historial</Text>
+            {groupByPeriod(recentBitacoras).map((group) => (
+              <View key={group.key} style={styles.periodGroup}>
+                <Text style={styles.periodLabel}>{group.label}</Text>
+                {group.items.map((bitacora) => (
+                  <View key={bitacora.id} style={styles.historyCard}>
+                    <View style={styles.historyHeader}>
+                      <Text style={styles.historyDay}>Día #{bitacora.day_number}</Text>
+                      <Text style={styles.historyDate}>
+                        {safeDate(bitacora.date)
+                          ? format(safeDate(bitacora.date)!, "d 'de' MMMM", { locale: es })
+                          : ''}
+                      </Text>
                     </View>
-                  )}
-                  {bitacora.baby_mood && (
-                    <View style={styles.statBadge}>
-                      <Ionicons name="happy" size={14} color={colors.accent.sage} />
-                      <Text style={styles.statText}>{bitacora.baby_mood}</Text>
+                    <View style={styles.historyStats}>
+                      {bitacora.number_of_wakings !== undefined && (
+                        <View style={styles.statBadge}>
+                          <Ionicons name="moon" size={14} color={colors.accent.terracotta} />
+                          <Text style={styles.statText}>{bitacora.number_of_wakings} despertares</Text>
+                        </View>
+                      )}
+                      {bitacora.baby_mood && (
+                        <View style={styles.statBadge}>
+                          <Ionicons name="happy" size={14} color={colors.accent.sage} />
+                          <Text style={styles.statText}>{bitacora.baby_mood}</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
+                  </View>
+                ))}
               </View>
             ))}
+            {recentBitacoras.length >= historyLimit && (
+              <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMore} accessibilityRole="button" accessibilityLabel="Cargar más bitácoras">
+                <Ionicons name="chevron-down" size={16} color={colors.accent.sage} />
+                <Text style={styles.loadMoreText}>Cargar más</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>
@@ -344,6 +362,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     marginBottom: spacing.md,
+  },
+  periodGroup: {
+    marginBottom: spacing.md,
+  },
+  periodLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    color: colors.accent.sage,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: spacing.sm,
+  },
+  loadMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    marginTop: spacing.xs,
+  },
+  loadMoreText: {
+    color: colors.accent.sage,
+    fontWeight: '600',
+    fontSize: fontSize.sm,
   },
   historyCard: {
     backgroundColor: colors.background.card,

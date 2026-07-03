@@ -13,69 +13,118 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { supabase } from '../../lib/supabase';
 import { DailyBitacora } from '../../types';
-import { safeDate } from '../../utils/date';
-import { format, formatDistanceToNow } from 'date-fns';
+import { getClientBitacoras } from '../../services/api';
+import { safeDate, groupByPeriod } from '../../utils/date';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-interface BitacoraWithOwner extends DailyBitacora {
-    user_name: string;
-    user_email: string;
+const PAGE = 14;
+
+interface ClientRow {
+    id: string;
+    name: string;
+    email: string;
+    latestDate?: string;
+    latestDay?: number;
 }
 
 export default function CoachBitacorasScreen() {
-    const [bitacoras, setBitacoras] = useState<BitacoraWithOwner[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [selected, setSelected] = useState<BitacoraWithOwner | null>(null);
+    // Level 1 — client list
+    const [clients, setClients] = useState<ClientRow[]>([]);
+    const [loadingClients, setLoadingClients] = useState(true);
+
+    // Level 2 — one client's timeline
+    const [selectedClient, setSelectedClient] = useState<ClientRow | null>(null);
+    const [clientBitacoras, setClientBitacoras] = useState<DailyBitacora[]>([]);
+    const [loadingClient, setLoadingClient] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(false);
+
+    // Detail modal
+    const [selected, setSelected] = useState<DailyBitacora | null>(null);
     const [showModal, setShowModal] = useState(false);
 
-    const fetchBitacoras = async () => {
+    // ── Level 1: clients with their latest bitácora ──────────────────────────
+    const fetchClients = async () => {
         try {
-            // Fetch last 50 bitácoras from all users
-            const { data: bData, error: bErr } = await supabase
-                .from('bitacoras')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50);
+            const [{ data: profiles }, { data: recent }] = await Promise.all([
+                supabase.from('profiles').select('id, name, email').in('role', ['user', 'premium']),
+                supabase.from('bitacoras').select('user_id, date, day_number').order('date', { ascending: false }).limit(500),
+            ]);
 
-            if (bErr || !bData) {
-                console.error('Error fetching bitacoras:', bErr);
-                setBitacoras([]);
-                return;
+            // recent is date DESC → the first row seen per user is their latest.
+            const latest: Record<string, { date: string; day: number }> = {};
+            for (const b of recent ?? []) {
+                if (!latest[b.user_id]) latest[b.user_id] = { date: b.date, day: b.day_number };
             }
 
-            // Get unique user IDs
-            const userIds = [...new Set(bData.map((b) => b.user_id))];
-            if (userIds.length === 0) { setBitacoras([]); return; }
-
-            const { data: profiles } = await supabase
-                .from('profiles')
-                .select('id, name, email')
-                .in('id', userIds);
-
-            const profileMap: Record<string, { name: string; email: string }> = {};
-            for (const p of profiles ?? []) {
-                profileMap[p.id] = { name: p.name || 'Usuario', email: p.email || '' };
-            }
-
-            const merged: BitacoraWithOwner[] = bData.map((b) => ({
-                ...b,
-                user_name: profileMap[b.user_id]?.name ?? 'Usuario',
-                user_email: profileMap[b.user_id]?.email ?? '',
+            const rows: ClientRow[] = (profiles ?? []).map((p) => ({
+                id: p.id,
+                name: p.name || 'Usuario',
+                email: p.email || '',
+                latestDate: latest[p.id]?.date,
+                latestDay: latest[p.id]?.day,
             }));
 
-            setBitacoras(merged);
+            // Clients who logged recently float to the top (newest first); the
+            // rest fall to an alphabetical tail.
+            rows.sort((a, b) => {
+                if (a.latestDate && b.latestDate) return a.latestDate < b.latestDate ? 1 : -1;
+                if (a.latestDate) return -1;
+                if (b.latestDate) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            setClients(rows);
         } catch (e) {
-            console.error('Exception in fetchBitacoras:', e);
+            console.error('Error fetching clients:', e);
         } finally {
-            setIsLoading(false);
+            setLoadingClients(false);
         }
     };
 
     useEffect(() => {
-        fetchBitacoras();
-        const interval = setInterval(fetchBitacoras, 30000);
+        fetchClients();
+        const interval = setInterval(fetchClients, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    // ── Level 2: one client's paginated timeline ─────────────────────────────
+    const openClient = async (c: ClientRow) => {
+        setSelectedClient(c);
+        setClientBitacoras([]);
+        setHasMore(false);
+        setLoadingClient(true);
+        try {
+            const first = await getClientBitacoras(c.id, PAGE);
+            setClientBitacoras(first);
+            setHasMore(first.length === PAGE);
+        } catch (e) {
+            console.error('Error loading client bitacoras:', e);
+        } finally {
+            setLoadingClient(false);
+        }
+    };
+
+    const loadMoreClient = async () => {
+        if (!selectedClient || clientBitacoras.length === 0 || loadingMore) return;
+        const before = clientBitacoras[clientBitacoras.length - 1].date;
+        setLoadingMore(true);
+        try {
+            const next = await getClientBitacoras(selectedClient.id, PAGE, before);
+            setClientBitacoras((prev) => [...prev, ...next]);
+            setHasMore(next.length === PAGE);
+        } catch (e) {
+            console.error('Error loading more bitacoras:', e);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    const backToClients = () => {
+        setSelectedClient(null);
+        setClientBitacoras([]);
+    };
 
     const moodColor = (mood?: string) => {
         if (!mood) return colors.text.muted;
@@ -84,36 +133,45 @@ export default function CoachBitacorasScreen() {
         return colors.accent.sage;
     };
 
-    const renderRow = (b: BitacoraWithOwner) => (
-        <TouchableOpacity
-            key={b.id}
-            style={styles.card}
-            onPress={() => { setSelected(b); setShowModal(true); }}
-        >
+    const initials = (name: string) =>
+        name && name !== 'Usuario'
+            ? name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+            : 'U';
+
+    // ── Renders ──────────────────────────────────────────────────────────────
+    const renderClientRow = (c: ClientRow) => (
+        <TouchableOpacity key={c.id} style={styles.clientRow} onPress={() => openClient(c)}>
+            <View style={styles.avatar}><Text style={styles.avatarText}>{initials(c.name)}</Text></View>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.clientName} numberOfLines={1}>{c.name}</Text>
+                <Text style={styles.clientMeta} numberOfLines={1}>
+                    {c.latestDate
+                        ? `Última: Día #${c.latestDay} · ${safeDate(c.latestDate) ? format(safeDate(c.latestDate)!, "d 'de' MMM", { locale: es }) : ''}`
+                        : 'Sin registros aún'}
+                </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
+        </TouchableOpacity>
+    );
+
+    const renderTimelineCard = (b: DailyBitacora) => (
+        <TouchableOpacity key={b.id} style={styles.card} onPress={() => { setSelected(b); setShowModal(true); }}>
             <View style={styles.cardLeft}>
                 <Text style={styles.cardDay}>Día #{b.day_number}</Text>
                 <Text style={styles.cardDate}>
                     {safeDate(b.date) ? format(safeDate(b.date)!, "d 'de' MMMM", { locale: es }) : ''}
                 </Text>
             </View>
-
-            <View style={styles.cardCenter}>
-                <Text style={styles.cardUser} numberOfLines={1}>{b.user_name}</Text>
+            <View style={styles.cardRight}>
                 {b.baby_mood && (
                     <View style={[styles.moodBadge, { backgroundColor: moodColor(b.baby_mood) + '33' }]}>
                         <Text style={[styles.moodText, { color: moodColor(b.baby_mood) }]}>{b.baby_mood}</Text>
                     </View>
                 )}
-            </View>
-
-            <View style={styles.cardRight}>
-                <Text style={styles.timeAgo}>
-                    {formatDistanceToNow(new Date(b.created_at), { addSuffix: true, locale: es })}
-                </Text>
                 {b.number_of_wakings != null && (
                     <View style={styles.wakingsRow}>
                         <Ionicons name="moon-outline" size={12} color={colors.text.muted} />
-                        <Text style={styles.wakingsText}>{b.number_of_wakings}x</Text>
+                        <Text style={styles.wakingsText}>{b.number_of_wakings} despertares</Text>
                     </View>
                 )}
             </View>
@@ -122,28 +180,73 @@ export default function CoachBitacorasScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Bitácoras</Text>
-                <Text style={styles.subtitle}>Registros diarios de clientes</Text>
-            </View>
+            {!selectedClient ? (
+                // ─── LEVEL 1: client list ───────────────────────────────────
+                <>
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Bitácoras</Text>
+                        <Text style={styles.subtitle}>Elige una clienta para ver su historial</Text>
+                    </View>
 
-            {isLoading ? (
-                <View style={styles.center}>
-                    <ActivityIndicator color={colors.accent.sage} size="large" />
-                </View>
-            ) : bitacoras.length === 0 ? (
-                <View style={styles.center}>
-                    <Ionicons name="journal-outline" size={64} color={colors.text.muted} />
-                    <Text style={styles.emptyTitle}>Sin bitácoras aún</Text>
-                    <Text style={styles.emptyText}>Los registros de tus clientes aparecerán aquí.</Text>
-                </View>
+                    {loadingClients ? (
+                        <View style={styles.center}><ActivityIndicator color={colors.accent.sage} size="large" /></View>
+                    ) : clients.length === 0 ? (
+                        <View style={styles.center}>
+                            <Ionicons name="journal-outline" size={64} color={colors.text.muted} />
+                            <Text style={styles.emptyTitle}>Sin clientas aún</Text>
+                            <Text style={styles.emptyText}>Cuando se registren, aparecerán aquí.</Text>
+                        </View>
+                    ) : (
+                        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+                            {clients.map(renderClientRow)}
+                        </ScrollView>
+                    )}
+                </>
             ) : (
-                <ScrollView
-                    contentContainerStyle={styles.list}
-                    showsVerticalScrollIndicator={false}
-                >
-                    {bitacoras.map(renderRow)}
-                </ScrollView>
+                // ─── LEVEL 2: one client's timeline ─────────────────────────
+                <>
+                    <View style={styles.timelineHeader}>
+                        <TouchableOpacity style={styles.backBtn} onPress={backToClients} accessibilityRole="button" accessibilityLabel="Volver a clientas">
+                            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                        </TouchableOpacity>
+                        <View style={styles.timelineTitleWrap}>
+                            <Text style={styles.timelineName} numberOfLines={1}>{selectedClient.name}</Text>
+                            <Text style={styles.subtitle}>Historial de sueño</Text>
+                        </View>
+                        <View style={{ width: 40 }} />
+                    </View>
+
+                    {loadingClient ? (
+                        <View style={styles.center}><ActivityIndicator color={colors.accent.sage} size="large" /></View>
+                    ) : clientBitacoras.length === 0 ? (
+                        <View style={styles.center}>
+                            <Ionicons name="journal-outline" size={64} color={colors.text.muted} />
+                            <Text style={styles.emptyTitle}>Sin bitácoras</Text>
+                            <Text style={styles.emptyText}>Esta clienta aún no ha registrado ningún día.</Text>
+                        </View>
+                    ) : (
+                        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+                            {groupByPeriod(clientBitacoras).map((group) => (
+                                <View key={group.key} style={styles.periodGroup}>
+                                    <Text style={styles.periodLabel}>{group.label}</Text>
+                                    {group.items.map(renderTimelineCard)}
+                                </View>
+                            ))}
+                            {hasMore && (
+                                <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMoreClient} disabled={loadingMore} accessibilityRole="button">
+                                    {loadingMore ? (
+                                        <ActivityIndicator color={colors.accent.sage} size="small" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="chevron-down" size={16} color={colors.accent.sage} />
+                                            <Text style={styles.loadMoreText}>Cargar más</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                        </ScrollView>
+                    )}
+                </>
             )}
 
             {/* Detail Modal */}
@@ -159,7 +262,7 @@ export default function CoachBitacorasScreen() {
                             <TouchableOpacity onPress={() => setShowModal(false)}>
                                 <Ionicons name="close" size={28} color={colors.text.secondary} />
                             </TouchableOpacity>
-                            <Text style={styles.modalTitle}>{selected.user_name} — Día #{selected.day_number}</Text>
+                            <Text style={styles.modalTitle}>{selectedClient?.name} — Día #{selected.day_number}</Text>
                             <View style={{ width: 28 }} />
                         </View>
 
@@ -168,7 +271,6 @@ export default function CoachBitacorasScreen() {
                                 {safeDate(selected.date) ? format(safeDate(selected.date)!, "EEEE d 'de' MMMM yyyy", { locale: es }) : ''}
                             </Text>
 
-                            {/* Stats row */}
                             <View style={styles.statsRow}>
                                 {selected.number_of_wakings != null && (
                                     <View style={styles.statChip}>
@@ -190,23 +292,20 @@ export default function CoachBitacorasScreen() {
                                 )}
                             </View>
 
-                            {/* Sleep schedule */}
                             <Section label="Rutina nocturna">
                                 {row('Acostado para dormir', selected.laid_down_for_bed)}
                                 {row('Se durmió', selected.fell_asleep_at)}
                                 {row('Despertó mañana', selected.morning_wake_time)}
                             </Section>
 
-                            {/* Naps */}
                             {(selected.nap_1_duration_minutes || selected.nap_2_duration_minutes || selected.nap_3_duration_minutes) && (
                                 <Section label="Siestas">
-                                    {selected.nap_1_duration_minutes && row('Siesta 1', `${selected.nap_1_duration_minutes} min`)}
-                                    {selected.nap_2_duration_minutes && row('Siesta 2', `${selected.nap_2_duration_minutes} min`)}
-                                    {selected.nap_3_duration_minutes && row('Siesta 3', `${selected.nap_3_duration_minutes} min`)}
+                                    {selected.nap_1_duration_minutes ? row('Siesta 1', `${selected.nap_1_duration_minutes} min`) : null}
+                                    {selected.nap_2_duration_minutes ? row('Siesta 2', `${selected.nap_2_duration_minutes} min`) : null}
+                                    {selected.nap_3_duration_minutes ? row('Siesta 3', `${selected.nap_3_duration_minutes} min`) : null}
                                 </Section>
                             )}
 
-                            {/* Feeding */}
                             {selected.how_baby_ate && (
                                 <Section label="Alimentación">
                                     {row('Cómo comió', selected.how_baby_ate)}
@@ -214,14 +313,12 @@ export default function CoachBitacorasScreen() {
                                 </Section>
                             )}
 
-                            {/* Notes */}
                             {selected.notes && (
                                 <Section label="Notas">
                                     <Text style={styles.notesText}>{selected.notes}</Text>
                                 </Section>
                             )}
 
-                            {/* AI Summary */}
                             {selected.ai_summary && (
                                 <View style={styles.aiBox}>
                                     <View style={styles.aiHeader}>
@@ -271,10 +368,46 @@ const styles = StyleSheet.create({
     subtitle: { fontSize: fontSize.sm, color: colors.text.secondary, marginTop: spacing.xs },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     emptyTitle: { fontSize: fontSize.lg, fontWeight: '600', color: colors.text.primary, marginTop: spacing.md },
-    emptyText: { fontSize: fontSize.sm, color: colors.text.secondary, textAlign: 'center', marginTop: spacing.sm },
+    emptyText: { fontSize: fontSize.sm, color: colors.text.secondary, textAlign: 'center', marginTop: spacing.sm, paddingHorizontal: spacing.xl },
     list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
 
-    // Card
+    // Client list rows
+    clientRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.background.card,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        gap: spacing.md,
+    },
+    avatar: {
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: colors.accent.sage,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    avatarText: { fontSize: fontSize.md, fontWeight: '700', color: colors.text.primary },
+    clientName: { fontSize: fontSize.md, fontWeight: '600', color: colors.text.primary },
+    clientMeta: { fontSize: fontSize.sm, color: colors.text.secondary, marginTop: 2 },
+
+    // Timeline header (level 2)
+    timelineHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.md,
+        paddingBottom: spacing.md,
+    },
+    backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+    timelineTitleWrap: { flex: 1, alignItems: 'center' },
+    timelineName: { fontSize: fontSize.lg, fontWeight: '700', color: colors.text.primary },
+
+    // Period groups + timeline cards
+    periodGroup: { marginBottom: spacing.md },
+    periodLabel: {
+        fontSize: fontSize.xs, fontWeight: '700', color: colors.accent.sage,
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.sm,
+    },
     card: {
         flexDirection: 'row',
         backgroundColor: colors.background.card,
@@ -283,17 +416,20 @@ const styles = StyleSheet.create({
         marginBottom: spacing.sm,
         alignItems: 'center',
     },
-    cardLeft: { marginRight: spacing.md, minWidth: 60 },
-    cardDay: { fontSize: fontSize.sm, fontWeight: '700', color: colors.text.primary },
-    cardDate: { fontSize: fontSize.xs, color: colors.text.muted, marginTop: 2 },
-    cardCenter: { flex: 1 },
-    cardUser: { fontSize: fontSize.md, fontWeight: '600', color: colors.text.primary },
-    moodBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 4 },
+    cardLeft: { flex: 1 },
+    cardDay: { fontSize: fontSize.md, fontWeight: '700', color: colors.text.primary },
+    cardDate: { fontSize: fontSize.xs, color: colors.text.muted, marginTop: 2, textTransform: 'capitalize' },
+    cardRight: { alignItems: 'flex-end', gap: 4 },
+    moodBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
     moodText: { fontSize: fontSize.xs, fontWeight: '600' },
-    cardRight: { alignItems: 'flex-end', marginLeft: spacing.sm },
-    timeAgo: { fontSize: fontSize.xs, color: colors.text.muted },
-    wakingsRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 4 },
+    wakingsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     wakingsText: { fontSize: fontSize.xs, color: colors.text.muted },
+
+    loadMoreBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: spacing.xs, paddingVertical: spacing.md, marginTop: spacing.xs,
+    },
+    loadMoreText: { color: colors.accent.sage, fontWeight: '600', fontSize: fontSize.sm },
 
     // Modal
     modal: { flex: 1, backgroundColor: colors.background.primary },

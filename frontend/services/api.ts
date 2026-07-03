@@ -1,4 +1,5 @@
 import { supabase, CheckIn, ChatMessage, ValidationCard, Bitacora, Profile, DirectMessage } from '../lib/supabase';
+import { DailyBitacora } from '../types';
 import { getChatResponse, getValidationResponse, getBitacoraSummary, FALLBACK_MESSAGE } from './groq';
 import { DebugLogger } from '../utils/debugLogger';
 import { localDateString, localDayRange } from '../utils/date';
@@ -320,15 +321,40 @@ export const createBitacora = async (bitacoraData: any): Promise<Bitacora> => {
   return data;
 };
 
+// Ordered by the calendar `date` (not created_at) so a back-filled/edited older
+// day sorts to its real place instead of jumping to the top. RLS scopes rows to
+// the caller (a regular user sees only their own).
 export const getBitacoras = async (limit: number = 30): Promise<Bitacora[]> => {
   const { data, error } = await supabase
     .from('bitacoras')
     .select('*')
-    .order('created_at', { ascending: false })
+    .order('date', { ascending: false })
     .limit(limit);
 
   if (error) throw error;
   return data || [];
+};
+
+// One client's bitácoras for the coach timeline — newest day first, paginated by
+// a `before` cursor (pass the oldest `date` already loaded to get the next page).
+// Authorized by the "Coaches can view all bitacoras" RLS policy. Returns the rich
+// DailyBitacora shape (select * has every column the detail view reads).
+export const getClientBitacoras = async (
+  userId: string,
+  limit: number = 14,
+  before?: string,
+): Promise<DailyBitacora[]> => {
+  let q = supabase
+    .from('bitacoras')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(limit);
+  if (before) q = q.lt('date', before);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || []) as DailyBitacora[];
 };
 
 export const getTodayBitacora = async (): Promise<Bitacora | null> => {
@@ -427,6 +453,34 @@ export async function getDirectMessages(): Promise<DirectMessage[]> {
 
   DebugLogger.info('[DM] Loaded messages:', data?.length ?? 0);
   return data || [];
+}
+
+/**
+ * Get ONLY the thread between the current user and one other person (coach↔client),
+ * newest `limit` messages, returned oldest→newest for display. Replaces the old
+ * pattern of pulling the caller's ENTIRE cross-client history on every 5s poll.
+ */
+export async function getThreadMessages(otherUserId: string, limit: number = 200): Promise<DirectMessage[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user || !otherUserId) return [];
+
+  const { data, error } = await supabase
+    .from('direct_messages')
+    .select('*')
+    .or(
+      `and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),` +
+      `and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`
+    )
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    DebugLogger.error('[DM] getThreadMessages error:', error.message);
+    return [];
+  }
+  // Fetched newest-first to honour the LIMIT; flip to chronological for the UI.
+  return (data || []).reverse();
 }
 
 /**

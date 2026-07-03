@@ -16,7 +16,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import { DirectMessage } from '../../types';
-import { getDirectMessages, sendDirectMessage, markMessagesRead } from '../../services/api';
+import { getThreadMessages, sendDirectMessage, markMessagesRead } from '../../services/api';
 import { InputValidator } from '../../utils/validator';
 
 export default function CoachClientChatScreen() {
@@ -65,11 +65,8 @@ export default function CoachClientChatScreen() {
     const loadMessages = async (silent = false) => {
         if (!silent) setIsLoadingHistory(true);
         try {
-            const allMsgs = await getDirectMessages();
-            // Filter messages specifically for this client
-            const clientMsgs = allMsgs.filter(
-                (m) => m.sender_id === clientId || m.receiver_id === clientId
-            );
+            // Fetch ONLY this client's thread (not the coach's whole history).
+            const clientMsgs = await getThreadMessages(clientId as string);
             setMessages(clientMsgs);
             // Mark the client's messages as read so the unread badge clears.
             markMessagesRead(clientId as string);
@@ -108,10 +105,6 @@ export default function CoachClientChatScreen() {
             setIsSending(false);
         }
     };
-
-    const currentUserId = messages.length > 0
-        ? (messages.find(m => m.sender_id !== clientId)?.sender_id)
-        : undefined;
 
     const renderMessage = (msg: DirectMessage) => {
         const isMe = msg.sender_id !== clientId;
