@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     scrollView: { flex: 1 },
     listContent: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 100,
+        paddingBottom: spacing.xl,
     },
     clientCard: {
         flexDirection: 'row',

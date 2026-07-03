@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 120 : 90, // Increased for better visibility
+    bottom: spacing.lg,
     left: spacing.lg,
     right: spacing.lg,
   },

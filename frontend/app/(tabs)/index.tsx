@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Platform } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, spacing, borderRadius } from '../../theme/theme';
 import CrisisModeScreen from '../../components/CrisisModeScreen';
@@ -9,10 +9,6 @@ import { BitacoraInput } from '../../components/BitacoraInput';
 
 export default function HomeScreen() {
   const [showCheckIn, setShowCheckIn] = useState(false);
-  const insets = useSafeAreaInsets();
-  // The tab bar is absolutely positioned (bottom:0). Reserve its real height so
-  // the PÁNICO button sits ABOVE it instead of hidden behind the navbar.
-  const tabBarClearance = 70 + Math.max(insets.bottom, Platform.OS === 'android' ? 40 : 0) + 12;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -65,8 +61,8 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Crisis Mode Button — pinned above the absolute tab bar */}
-      <View style={[styles.panicContainer, { paddingBottom: tabBarClearance }]}>
+      {/* Crisis Mode Button — the tab bar reserves its own space now */}
+      <View style={styles.panicContainer}>
         <CrisisModeScreen />
       </View>
 

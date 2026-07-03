@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.md,
-        paddingBottom: Platform.OS === 'android' ? 110 : 90,
+        paddingBottom: spacing.md,
         borderTopWidth: 1,
         borderTopColor: colors.background.card,
         gap: spacing.sm,

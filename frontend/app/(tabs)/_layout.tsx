@@ -29,10 +29,8 @@ export default function TabLayout() {
       height: tabBarHeight,
       paddingBottom: bottomPadding,
       paddingTop: spacing.xs,
-      position: 'absolute' as const,
-      bottom: 0,
-      left: 0,
-      right: 0,
+      // NOT absolute: the tab bar reserves its own space so screen content
+      // (inputs, FABs, buttons) never renders behind it.
       elevation: 8,
     },
     tabBarActiveTintColor: colors.accent.gold,

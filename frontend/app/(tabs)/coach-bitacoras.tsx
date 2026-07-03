@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     emptyTitle: { fontSize: fontSize.lg, fontWeight: '600', color: colors.text.primary, marginTop: spacing.md },
     emptyText: { fontSize: fontSize.sm, color: colors.text.secondary, textAlign: 'center', marginTop: spacing.sm },
-    list: { paddingHorizontal: spacing.lg, paddingBottom: 100 },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
 
     // Card
     card: {

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Space for tab bar
+    paddingBottom: spacing.xl,
   },
   header: {
     paddingHorizontal: spacing.lg,

@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
-    paddingBottom: Platform.OS === 'android' ? 85 : 90,
+    paddingBottom: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.background.card,
     backgroundColor: colors.background.primary,
