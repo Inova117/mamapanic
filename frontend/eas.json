@@ -9,6 +9,10 @@
         },
         "preview": {
             "distribution": "internal",
+            "env": {
+                "EXPO_PUBLIC_SUPABASE_URL": "https://nenmhcfbzysotgagamjb.supabase.co",
+                "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lbm1oY2Zienlzb3RnYWdhbWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzgwODAsImV4cCI6MjA5ODMxNDA4MH0.0ZUy7bradle8p1h3yyz_w94IcJSjI9ZvwRp1x8VPsf4"
+            },
             "ios": {
                 "simulator": false,
                 "resourceClass": "m-medium"
@@ -19,6 +23,10 @@
         },
         "production": {
             "distribution": "store",
+            "env": {
+                "EXPO_PUBLIC_SUPABASE_URL": "https://nenmhcfbzysotgagamjb.supabase.co",
+                "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5lbm1oY2Zienlzb3RnYWdhbWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzgwODAsImV4cCI6MjA5ODMxNDA4MH0.0ZUy7bradle8p1h3yyz_w94IcJSjI9ZvwRp1x8VPsf4"
+            },
             "ios": {
                 "resourceClass": "m-medium"
             },
