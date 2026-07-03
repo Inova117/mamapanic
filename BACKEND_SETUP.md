@@ -20,14 +20,16 @@ Sigue estos pasos para levantar el backend desde cero, de forma segura.
 ## 4. Auth
 - **Authentication → Providers → Email**: habilitado (Confirm email según prefieras; si lo activas, las usuarias deben confirmar correo).
 - **Authentication → URL Configuration**:
-  - **Site URL**: la URL de tu app web (ej. la de Netlify).
-  - **Redirect URLs**: agrega tu URL web de reset (`https://TU-APP/auth/reset-password`). El deep link nativo (`mamarespira://...`) lo configuramos en la Fase 4.
+  - **Site URL**: `https://entresuenosec.netlify.app`
+  - **Redirect URLs**: agrega **ambas**:
+    - `https://entresuenosec.netlify.app/auth/reset-password` (web)
+    - `entresuenos://auth/reset-password` (deep link nativo del APK)
 
 ## 5. Crear la coach
 1. Regístrate en la app con el correo de la coach (como usuaria normal).
 2. SQL Editor:
    ```sql
-   UPDATE profiles SET role = 'coach' WHERE email = 'TU_COACH@ejemplo.com';
+   UPDATE profiles SET role = 'coach' WHERE email = 'maricruzleons09@gmail.com';
    ```
    (Se hace por SQL a propósito: la RLS impide que una usuaria se auto-promueva.)
 

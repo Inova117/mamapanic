@@ -1,20 +1,20 @@
 {
   "expo": {
     "name": "Entresueños",
-    "slug": "mama-respira",
+    "slug": "entresuenos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mamarespira",
+    "scheme": "entresuenos",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mamarespira.app",
+      "bundleIdentifier": "com.entresuenos.app",
       "buildNumber": "1"
     },
     "android": {
-      "package": "com.mamarespira.app",
+      "package": "com.entresuenos.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
@@ -65,7 +65,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d8aaafb7-f4ef-4b13-a8e5-d315162884c8"
+        "projectId": "4c02e279-e5f0-4f67-971b-9b2e95309e3d"
       }
     },
     "owner": "119mgd"

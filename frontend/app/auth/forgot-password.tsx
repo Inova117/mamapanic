@@ -29,7 +29,7 @@ export default function ForgotPasswordScreen() {
         try {
             // Native builds open the app via its scheme; web uses the site URL.
             // BOTH must be in Supabase Auth → URL Configuration → Redirect URLs:
-            //   mamarespira://auth/reset-password   and   https://<your-web>/auth/reset-password
+            //   entresuenos://auth/reset-password   and   https://entresuenosec.netlify.app/auth/reset-password
             const redirectTo = Platform.OS === 'web'
                 ? 'https://entresuenosec.netlify.app/auth/reset-password'
                 : Linking.createURL('/auth/reset-password');
