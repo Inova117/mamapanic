@@ -1,13 +1,14 @@
 import { Redirect } from 'expo-router';
+import { useAuth } from '../contexts/AuthContext';
+import LandingScreen from '../components/LandingScreen';
 
-// This is the initial entry point. 
-// Navigation logic in `contexts/AuthContext.tsx` will handle redirection based on auth state.
-// If auth state is not yet determined, it will show a loading screen (handled in _layout or inside AuthProvider).
-// If determined:
-// - Authenticated: Redirects to /(tabs) by AuthContext
-// - Unauthenticated: Redirects to /auth/login by AuthContext
-
-// However, we need a default fallback here.
 export default function Index() {
-    return <Redirect href="/auth/login" />;
+  const { user, isLoading } = useAuth();
+
+  // While the session resolves, render nothing — the splash overlay in the root
+  // layout covers the screen. Logged-in users go straight into the app; everyone
+  // else sees the public landing/welcome page.
+  if (isLoading) return null;
+  if (user) return <Redirect href="/(tabs)" />;
+  return <LandingScreen />;
 }

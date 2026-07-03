@@ -31,7 +31,7 @@ export default function ForgotPasswordScreen() {
             // BOTH must be in Supabase Auth → URL Configuration → Redirect URLs:
             //   mamarespira://auth/reset-password   and   https://<your-web>/auth/reset-password
             const redirectTo = Platform.OS === 'web'
-                ? 'https://nidoes.netlify.app/auth/reset-password'
+                ? 'https://nidoec.netlify.app/auth/reset-password'
                 : Linking.createURL('/auth/reset-password');
 
             const { error } = await supabase.auth.resetPasswordForEmail(

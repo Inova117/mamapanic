@@ -128,8 +128,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const inAuthGroup = segments[0] === 'auth';
     const onResetPage = String(segments[1]) === 'reset-password';
+    // The root route ("/") is the PUBLIC landing page — don't force logged-out
+    // visitors to login there (index.tsx shows the landing / redirects if authed).
+    const onLanding = (segments as string[]).length === 0;
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !onLanding) {
       router.replace('/auth/login');
     } else if (user && inAuthGroup && !onResetPage && !isPasswordRecovery) {
       // isPasswordRecovery or being on the reset-password page prevents redirect while the user resets their password
